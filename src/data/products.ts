@@ -52,4 +52,5 @@ export const products: Product[] = [
   { id: 35, name: '딸기모찌', number: 0, category: 4, image: '/strawberry-mochi.png', price: 20000 },
   { id: 36, name: '딸기우유', number: 0, category: 4, image: '/strawberry-milk.png', price: 20000 },
   { id: 37, name: '땅콩막걸리', number: 0, category: 4, image: '/peanut-makgeolli.png', price: 20000 },
+  { id: 38, name: '새우초밥', number: 0, category: 4, image: '/saeu-chobap.png', price: 20000 },
 ];

@@ -15,7 +15,7 @@ export default function ProductCard({ product, index, soldOut }: Props) {
       transition={{ duration: 0.4, delay: index * 0.03 }}
       className="flex flex-col items-center"
     >
-      <div className="w-full bg-white rounded-2xl overflow-hidden shadow-sm">
+      <div className="w-full rounded-2xl overflow-hidden">
         <div className="aspect-square overflow-hidden">
           <img
             src={product.image}
