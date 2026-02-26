@@ -1,7 +1,6 @@
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { AnimatePresence } from 'framer-motion';
 import Layout from './components/layout/Layout';
-import Home from './pages/Home';
 import Shop from './pages/Shop';
 import AdminLogin from './pages/AdminLogin';
 import Admin from './pages/Admin';
@@ -12,8 +11,7 @@ function App() {
       <AnimatePresence mode="wait">
         <Routes>
           <Route path="/" element={<Layout />}>
-            <Route index element={<Home />} />
-            <Route path="shop" element={<Shop />} />
+            <Route index element={<Shop />} />
             <Route path="admin/login" element={<AdminLogin />} />
             <Route path="admin" element={<Admin />} />
           </Route>

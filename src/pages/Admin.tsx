@@ -58,7 +58,7 @@ export default function Admin() {
   if (!isAdminAuthenticated()) return null;
 
   return (
-    <div className="px-12 py-8">
+    <div className="min-h-screen bg-white px-12 py-8">
       <div className="flex items-center justify-between mb-8">
         <h1 className="text-2xl font-bold">관리자</h1>
         <button
