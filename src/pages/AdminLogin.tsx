@@ -28,22 +28,24 @@ export default function AdminLogin() {
   };
 
   return (
-    <div className="min-h-screen bg-white flex items-center justify-center px-4">
-      <form onSubmit={handleSubmit} className="w-full max-w-sm space-y-6">
-        <h1 className="text-2xl font-bold text-center">관리자 로그인</h1>
-        <div>
-          <input
-            type="password"
-            value={password}
-            onChange={(e) => {
-              setPassword(e.target.value);
-              setError('');
-            }}
-            placeholder="비밀번호 입력"
-            className="w-full border border-gray-300 rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-black transition-colors"
-          />
-          {error && <p className="mt-2 text-sm text-red-500">{error}</p>}
-        </div>
+    <div className="min-h-screen bg-white flex flex-col items-center justify-center px-4">
+      <img
+        src="/wtl-admin-title.png"
+        alt="WTL Manager"
+        className="h-28 md:h-36 mb-8"
+      />
+      <form onSubmit={handleSubmit} className="w-full max-w-sm space-y-4">
+        <input
+          type="password"
+          value={password}
+          onChange={(e) => {
+            setPassword(e.target.value);
+            setError('');
+          }}
+          placeholder="비밀번호 입력"
+          className="w-full border border-gray-300 rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-black transition-colors"
+        />
+        {error && <p className="text-sm text-red-500">{error}</p>}
         <button
           type="submit"
           className="w-full bg-black text-white py-3 rounded-lg text-sm hover:bg-gray-800 transition-colors"

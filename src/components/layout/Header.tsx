@@ -20,12 +20,11 @@ export default function Header() {
       {/* Logo */}
       <div className="text-center mb-6">
         <Link to="/">
-          <h1 className="text-5xl md:text-6xl font-black tracking-tight">
-            GIRIN
-          </h1>
-          <p className="text-sm font-bold tracking-widest mt-1">
-            GIRIN T-SHIRTS LIST
-          </p>
+          <img
+            src="/wtl-logo.png"
+            alt="WTL - WGGG T-SHIRTS LIST"
+            className="h-20 md:h-28 mx-auto"
+          />
         </Link>
       </div>
 

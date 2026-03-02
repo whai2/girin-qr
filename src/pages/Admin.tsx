@@ -1,8 +1,20 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { isAdminAuthenticated, adminLogout } from './AdminLogin';
 import { useProductState } from '../hooks/useProductState';
+import { ALL_SIZES } from '../hooks/useProductState';
 import { CATEGORY_NAMES } from '../data/products';
+
+const LOCATIONS = ['더현대 대구', '신세계 강남'];
+const TABS = ['전체리스트', '판매리스트', 'QR코드'];
+
+const categoryItems = [
+  { key: 0, label: '전체' },
+  ...Object.entries(CATEGORY_NAMES).map(([key, label]) => ({
+    key: Number(key),
+    label,
+  })),
+];
 
 export default function Admin() {
   const navigate = useNavigate();
@@ -10,45 +22,20 @@ export default function Admin() {
     products,
     toggleSoldOut,
     isSoldOut,
-    addProduct,
-    removeProduct,
+    toggleSizeSoldOut,
+    getSoldOutSizesForProduct,
   } = useProductState();
 
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const [newName, setNewName] = useState('');
-  const [newCategory, setNewCategory] = useState(1);
-  const [newPrice, setNewPrice] = useState('20000');
-  const [preview, setPreview] = useState('');
+  const [activeLocation, setActiveLocation] = useState(0);
+  const [activeTab, setActiveTab] = useState(0);
+  const [activeCategory, setActiveCategory] = useState(0);
+  const [search, setSearch] = useState('');
 
   useEffect(() => {
     if (!isAdminAuthenticated()) {
       navigate('/admin/login');
     }
   }, [navigate]);
-
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => setPreview(reader.result as string);
-    reader.readAsDataURL(file);
-  };
-
-  const handleUpload = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!preview || !newName) return;
-    addProduct({
-      name: newName,
-      number: 0,
-      category: newCategory,
-      image: preview,
-      price: Number(newPrice) || 20000,
-    });
-    setNewName('');
-    setNewPrice('20000');
-    setPreview('');
-    if (fileInputRef.current) fileInputRef.current.value = '';
-  };
 
   const handleLogout = () => {
     adminLogout();
@@ -57,130 +44,201 @@ export default function Admin() {
 
   if (!isAdminAuthenticated()) return null;
 
+  const filtered = products
+    .filter((p) => activeCategory === 0 || p.category === activeCategory)
+    .filter((p) => !search || p.name.includes(search));
+
   return (
-    <div className="min-h-screen bg-white px-12 py-8">
-      <div className="flex items-center justify-between mb-8">
-        <h1 className="text-2xl font-bold">관리자</h1>
-        <button
-          onClick={handleLogout}
-          className="text-sm text-gray-500 hover:text-black transition-colors"
-        >
-          로그아웃
-        </button>
+    <div className="min-h-screen bg-white">
+      {/* Header */}
+      <div className="px-4 pt-6 pb-4">
+        <div className="flex items-start justify-between">
+          <img
+            src="/wtl-admin-title.png"
+            alt="WTL Manager"
+            className="h-20 md:h-28"
+          />
+          <div className="flex flex-col items-end gap-2">
+            <img
+              src="/wtl-super-manager-door.png"
+              alt="Super Manager"
+              className="h-20 md:h-28"
+            />
+            <button
+              onClick={handleLogout}
+              className="text-xs text-gray-400 hover:text-black transition-colors"
+            >
+              로그아웃
+            </button>
+          </div>
+        </div>
       </div>
 
-      {/* Upload Section */}
-      <section className="mb-12 border border-gray-200 rounded-lg p-6">
-        <h2 className="text-lg font-semibold mb-4">상품 추가</h2>
-        <form onSubmit={handleUpload} className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <input
-              type="text"
-              value={newName}
-              onChange={(e) => setNewName(e.target.value)}
-              placeholder="상품명"
-              required
-              className="border border-gray-300 rounded-lg px-4 py-2 text-sm focus:outline-none focus:border-black"
-            />
-            <select
-              value={newCategory}
-              onChange={(e) => setNewCategory(Number(e.target.value))}
-              className="border border-gray-300 rounded-lg px-4 py-2 text-sm focus:outline-none focus:border-black"
-            >
-              {Object.entries(CATEGORY_NAMES).map(([key, label]) => (
-                <option key={key} value={key}>
-                  {label}
-                </option>
-              ))}
-            </select>
-            <input
-              type="number"
-              value={newPrice}
-              onChange={(e) => setNewPrice(e.target.value)}
-              placeholder="가격"
-              required
-              className="border border-gray-300 rounded-lg px-4 py-2 text-sm focus:outline-none focus:border-black"
-            />
-          </div>
-          <div className="flex items-center gap-4">
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*"
-              onChange={handleFileChange}
-              className="text-sm"
-            />
-            {preview && (
-              <img
-                src={preview}
-                alt="미리보기"
-                className="w-16 h-16 object-cover rounded"
-              />
-            )}
-          </div>
+      {/* Location Tabs */}
+      <div className="flex gap-3 px-4 pb-4">
+        {LOCATIONS.map((loc, i) => (
           <button
-            type="submit"
-            disabled={!preview || !newName}
-            className="bg-black text-white px-6 py-2 rounded-lg text-sm hover:bg-gray-800 transition-colors disabled:opacity-40"
+            key={loc}
+            onClick={() => setActiveLocation(i)}
+            className={`px-8 py-3.5 text-lg font-bold rounded-xl transition-colors ${
+              activeLocation === i
+                ? 'bg-[#ffdd71] text-black'
+                : 'bg-gray-100 text-gray-500'
+            }`}
           >
-            추가
+            {loc}
           </button>
-        </form>
-      </section>
+        ))}
+      </div>
 
-      {/* Product Management */}
-      <section>
-        <h2 className="text-lg font-semibold mb-4">
-          상품 관리 ({products.length}개)
-        </h2>
-        <div className="space-y-3">
-          {products.map((product) => {
-            const soldOut = isSoldOut(product.id);
-            const isCustom = product.number === 0;
-            return (
-              <div
-                key={product.id}
-                className="flex items-center gap-4 border border-gray-200 rounded-lg p-3"
-              >
-                <img
-                  src={product.image}
-                  alt={product.name}
-                  className="w-16 h-16 object-cover rounded"
-                />
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium truncate">
-                    {product.name}
-                  </p>
-                  <p className="text-xs text-gray-400">
-                    {CATEGORY_NAMES[product.category]} ·{' '}
-                    {product.price.toLocaleString()}원
-                  </p>
-                </div>
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => toggleSoldOut(product.id)}
-                    className={`px-3 py-1.5 text-xs rounded-full cursor-pointer transition-colors ${
+      {/* Tabs */}
+      <div className="flex gap-6 px-4 pb-3 border-b border-gray-200">
+        {TABS.map((tab, i) => (
+          <button
+            key={tab}
+            onClick={() => setActiveTab(i)}
+            className={`text-base font-bold pb-2 transition-colors ${
+              activeTab === i
+                ? 'text-black border-b-2 border-black'
+                : 'text-gray-400'
+            }`}
+          >
+            {tab}
+          </button>
+        ))}
+      </div>
+
+      {/* Search */}
+      <div className="px-4 py-3">
+        <input
+          type="text"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="검색"
+          className="w-full border border-gray-300 rounded-lg px-4 py-3 text-base focus:outline-none focus:border-black"
+        />
+      </div>
+
+      {/* Category Filter */}
+      <div className="flex gap-3 px-4 pb-4 overflow-x-auto">
+        {categoryItems.map((item) => (
+          <button
+            key={item.key}
+            onClick={() => setActiveCategory(item.key)}
+            className={`text-sm whitespace-nowrap transition-colors ${
+              activeCategory === item.key
+                ? 'text-black font-bold'
+                : 'text-gray-400'
+            }`}
+          >
+            {item.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Product List */}
+      <div className="px-4 pb-8">
+        {activeTab === 2 ? (
+          <div className="text-center text-gray-400 py-20">
+            QR코드 기능 준비중
+          </div>
+        ) : activeTab === 0 ? (
+          /* 전체리스트 */
+          <div className="space-y-3">
+            {filtered.map((product) => {
+              const soldOut = isSoldOut(product.id);
+              return (
+                <div
+                  key={product.id}
+                  className="flex items-center gap-4 border border-black rounded-xl p-3"
+                >
+                  <img
+                    src={product.image}
+                    alt={product.name}
+                    className="w-24 h-24 object-cover rounded-lg bg-gray-50"
+                  />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-base font-bold">{product.name}</p>
+                    <p className="text-sm text-gray-400 mt-0.5">
+                      {CATEGORY_NAMES[product.category]}
+                    </p>
+                    <p className="text-sm text-gray-400 mt-0.5">
+                      {product.price.toLocaleString()}원
+                    </p>
+                    <button
+                      onClick={() => toggleSoldOut(product.id)}
+                      className="text-sm text-blue-500 mt-1"
+                    >
+                      수정
+                    </button>
+                  </div>
+                  <span
+                    className={`w-20 h-20 rounded-full flex items-center justify-center text-sm font-bold shrink-0 border border-black ${
                       soldOut
-                        ? 'bg-red-100 text-red-600 hover:bg-red-200'
-                        : 'bg-green-100 text-green-600 hover:bg-green-200'
+                        ? 'bg-gray-300 text-gray-600'
+                        : 'bg-[#ffdd71] text-black'
                     }`}
                   >
-                    {soldOut ? '품절' : '판매중'}
-                  </button>
-                  {isCustom && (
-                    <button
-                      onClick={() => removeProduct(product.id)}
-                      className="px-3 py-1.5 text-xs rounded-full bg-gray-100 text-gray-500 hover:bg-gray-200 transition-colors"
-                    >
-                      삭제
-                    </button>
-                  )}
+                    {soldOut ? '미판매' : '판매중'}
+                  </span>
                 </div>
-              </div>
-            );
-          })}
-        </div>
-      </section>
+              );
+            })}
+          </div>
+        ) : (
+          /* 판매리스트 - 사이즈별 품절 관리 */
+          <div className="space-y-4">
+            {filtered.map((product) => {
+              const soldOutSizes = getSoldOutSizesForProduct(product.id);
+              return (
+                <div
+                  key={product.id}
+                  className="border border-black rounded-xl p-4"
+                >
+                  <div className="flex gap-4 mb-3">
+                    <img
+                      src={product.image}
+                      alt={product.name}
+                      className="w-24 h-24 object-cover rounded-lg bg-gray-50"
+                    />
+                    <div>
+                      <p className="text-base font-bold">{product.name}</p>
+                      <p className="text-sm text-gray-400">
+                        {CATEGORY_NAMES[product.category]}
+                      </p>
+                    </div>
+                  </div>
+                  {/* Size Grid */}
+                  <div className="grid grid-cols-5 gap-2">
+                    {ALL_SIZES.map((size) => {
+                      const isSizeSoldOut = soldOutSizes.includes(size);
+                      return (
+                        <button
+                          key={size}
+                          onClick={() => toggleSizeSoldOut(product.id, size)}
+                          className={`py-2 rounded-lg text-sm font-bold border transition-colors ${
+                            isSizeSoldOut
+                              ? 'bg-red-500 text-white border-red-500'
+                              : 'bg-white text-black border-gray-300'
+                          }`}
+                        >
+                          {size}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {filtered.length === 0 && activeTab !== 2 && (
+          <p className="text-center text-gray-400 py-20">
+            상품이 없습니다.
+          </p>
+        )}
+      </div>
     </div>
   );
 }
