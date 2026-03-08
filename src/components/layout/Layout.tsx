@@ -16,7 +16,7 @@ export default function Layout() {
         <Outlet />
       </main>
       <Footer />
-      <FloatingMascot />
+      {!isAdmin && <FloatingMascot />}
     </div>
   );
 }

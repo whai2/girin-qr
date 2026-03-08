@@ -1,11 +1,7 @@
 import { Link, useParams, useSearchParams } from 'react-router-dom';
-import { CATEGORY_NAMES } from '../../data/products';
+import { useQuery } from '@tanstack/react-query';
 import { getStoreBySlug } from '../../data/popupStores';
-
-const categoryItems = [
-  { key: '', label: '전체' },
-  ...Object.entries(CATEGORY_NAMES).map(([key, label]) => ({ key, label })),
-];
+import { fetchCategories } from '../../api/categories';
 
 const sizeItems = [
   { key: '', label: '전체' },
@@ -21,6 +17,17 @@ export default function Header() {
   const currentStore = storeSlug ? getStoreBySlug(storeSlug) : undefined;
   const isShop = !!currentStore && !location.pathname.includes('/product/');
   const isAdmin = location.pathname.startsWith('/admin');
+
+  const { data: categories = [] } = useQuery({
+    queryKey: ['categories'],
+    queryFn: fetchCategories,
+    enabled: isShop,
+  });
+
+  const categoryItems = [
+    { key: '', label: '전체' },
+    ...categories.map((c) => ({ key: String(c.order), label: c.name })),
+  ];
 
   if (isAdmin) return null;
 

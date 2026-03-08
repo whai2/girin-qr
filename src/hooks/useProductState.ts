@@ -1,129 +1,62 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useCallback } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
-  fetchProducts,
-  toggleSoldOut as apiToggleSoldOut,
-  toggleSizeSoldOut as apiToggleSizeSoldOut,
+  fetchStoreProducts,
+  toggleStoreProductSoldOut,
+  toggleStoreProductSizeSoldOut,
+  toggleStoreProductAge,
   createProduct as apiCreateProduct,
   deleteProduct as apiDeleteProduct,
-  type Product,
+  type StoreProduct,
 } from '../api/products';
-import { products as defaultProducts } from '../data/products';
 
-export type { Product };
-
-// localStorage 캐시 키
-const CACHE_KEY = 'girin_product_state';
-
-function loadCache(): Record<string, { soldOut: boolean; soldOutSizes: string[] }> {
-  try {
-    const raw = localStorage.getItem(CACHE_KEY);
-    return raw ? JSON.parse(raw) : {};
-  } catch {
-    return {};
-  }
-}
-
-function saveCache(products: Product[]) {
-  const cache: Record<string, { soldOut: boolean; soldOutSizes: string[] }> = {};
-  for (const p of products) {
-    if (p.soldOut || (p.soldOutSizes && p.soldOutSizes.length > 0)) {
-      cache[p._id] = { soldOut: p.soldOut, soldOutSizes: p.soldOutSizes || [] };
-    }
-  }
-  localStorage.setItem(CACHE_KEY, JSON.stringify(cache));
-}
-
-// API 실패 시 기존 하드코딩 데이터를 fallback으로 사용
-function toApiProduct(p: { id: number; name: string; number: number; category: number; image: string; price: number }): Product {
-  const cache = loadCache();
-  const cached = cache[String(p.id)];
-  return {
-    _id: String(p.id), name: p.name, number: p.number, category: p.category,
-    image: p.image, price: p.price,
-    soldOut: cached?.soldOut ?? false,
-    soldOutSizes: cached?.soldOutSizes ?? [],
-  };
-}
+export type { StoreProduct };
 
 export const ALL_SIZES = [
   '110', '120', '130', '140', '150',
   'XS', 'S', 'M', 'L', 'XL', '2XL', '3XL', '4XL',
 ];
 
-export function useProductState(location?: string) {
-  const [products, setProducts] = useState<Product[]>([]);
-  const [loading, setLoading] = useState(true);
+function storeProductsKey(storeSlug: string) {
+  return ['storeProducts', storeSlug] as const;
+}
 
-  const reload = useCallback(async () => {
-    try {
-      const data = await fetchProducts(location);
-      if (data && data.length > 0) {
-        setProducts(data);
-      } else {
-        // API 응답이 비어있으면 하드코딩 데이터 사용 (location 필터 없이)
-        setProducts(defaultProducts.map(toApiProduct));
-      }
-    } catch {
-      setProducts(defaultProducts.map(toApiProduct));
-    }
-    setLoading(false);
-  }, [location]);
+export function useProductState(storeSlug: string) {
+  const queryClient = useQueryClient();
+  const queryKey = storeProductsKey(storeSlug);
 
-  useEffect(() => {
-    reload();
-  }, [reload]);
+  const { data: products = [], isLoading: loading } = useQuery({
+    queryKey,
+    queryFn: () => fetchStoreProducts(storeSlug),
+    enabled: !!storeSlug,
+  });
 
-  // products 변경 시 localStorage에 캐시 저장
-  useEffect(() => {
-    if (products.length > 0) {
-      saveCache(products);
-    }
-  }, [products]);
-
-  const toggleSoldOut = useCallback(async (id: string) => {
-    try {
-      const updated = await apiToggleSoldOut(id);
-      if (updated && updated._id) {
-        setProducts((prev) => prev.map((p) => (p._id === id ? updated : p)));
-      } else {
-        throw new Error('Invalid response');
-      }
-    } catch {
-      // API 실패 시 로컬 상태만 토글
-      setProducts((prev) =>
-        prev.map((p) =>
-          p._id === id ? { ...p, soldOut: !p.soldOut } : p
-        )
+  // 품절 토글
+  const soldOutMutation = useMutation({
+    mutationFn: (id: string) => toggleStoreProductSoldOut(storeSlug, id),
+    onMutate: async (id) => {
+      await queryClient.cancelQueries({ queryKey });
+      const prev = queryClient.getQueryData<StoreProduct[]>(queryKey);
+      queryClient.setQueryData<StoreProduct[]>(queryKey, (old) =>
+        old?.map((p) => (p._id === id ? { ...p, soldOut: !p.soldOut } : p))
       );
-    }
-  }, []);
-
-  const isSoldOut = useCallback(
-    (id: string) => {
-      const p = products.find((p) => p._id === id);
-      if (!p) return false;
-      if (p.soldOut) return true;
-      // 모든 사이즈가 품절이면 soldOut으로 간주
-      if (p.soldOutSizes && p.soldOutSizes.length >= ALL_SIZES.length) {
-        return ALL_SIZES.every((s) => p.soldOutSizes.includes(s));
-      }
-      return false;
+      return { prev };
     },
-    [products]
-  );
+    onError: (_err, _id, context) => {
+      if (context?.prev) queryClient.setQueryData(queryKey, context.prev);
+    },
+    onSettled: () => queryClient.invalidateQueries({ queryKey }),
+  });
 
-  const toggleSizeSoldOut = useCallback(async (id: string, size: string) => {
-    try {
-      const updated = await apiToggleSizeSoldOut(id, size);
-      if (updated && updated._id) {
-        setProducts((prev) => prev.map((p) => (p._id === id ? updated : p)));
-      } else {
-        throw new Error('Invalid response');
-      }
-    } catch {
-      // API 실패 시 로컬 상태만 토글
-      setProducts((prev) =>
-        prev.map((p) => {
+  // 사이즈 품절 토글
+  const sizeSoldOutMutation = useMutation({
+    mutationFn: ({ id, size }: { id: string; size: string }) =>
+      toggleStoreProductSizeSoldOut(storeSlug, id, size),
+    onMutate: async ({ id, size }) => {
+      await queryClient.cancelQueries({ queryKey });
+      const prev = queryClient.getQueryData<StoreProduct[]>(queryKey);
+      queryClient.setQueryData<StoreProduct[]>(queryKey, (old) =>
+        old?.map((p) => {
           if (p._id !== id) return p;
           const sizes = p.soldOutSizes || [];
           return {
@@ -134,8 +67,89 @@ export function useProductState(location?: string) {
           };
         })
       );
-    }
-  }, []);
+      return { prev };
+    },
+    onError: (_err, _vars, context) => {
+      if (context?.prev) queryClient.setQueryData(queryKey, context.prev);
+    },
+    onSettled: () => queryClient.invalidateQueries({ queryKey }),
+  });
+
+  // 연령 그룹 토글
+  const ageGroupMutation = useMutation({
+    mutationFn: ({ id, age }: { id: string; age: 'kids' | 'adult' }) =>
+      toggleStoreProductAge(storeSlug, id, age),
+    onMutate: async ({ id, age }) => {
+      await queryClient.cancelQueries({ queryKey });
+      const prev = queryClient.getQueryData<StoreProduct[]>(queryKey);
+      queryClient.setQueryData<StoreProduct[]>(queryKey, (old) =>
+        old?.map((p) => {
+          if (p._id !== id) return p;
+          const groups = p.ageGroup || [];
+          return {
+            ...p,
+            ageGroup: groups.includes(age)
+              ? groups.filter((g) => g !== age)
+              : [...groups, age],
+          };
+        })
+      );
+      return { prev };
+    },
+    onError: (_err, _vars, context) => {
+      if (context?.prev) queryClient.setQueryData(queryKey, context.prev);
+    },
+    onSettled: () => queryClient.invalidateQueries({ queryKey }),
+  });
+
+  // 상품 등록
+  const addMutation = useMutation({
+    mutationFn: (product: { name: string; number: number; category: number; price: number; image?: File }) =>
+      apiCreateProduct(product),
+    onSettled: () => queryClient.invalidateQueries({ queryKey }),
+  });
+
+  // 상품 삭제
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => apiDeleteProduct(id),
+    onMutate: async (id) => {
+      await queryClient.cancelQueries({ queryKey });
+      const prev = queryClient.getQueryData<StoreProduct[]>(queryKey);
+      queryClient.setQueryData<StoreProduct[]>(queryKey, (old) =>
+        old?.filter((p) => p._id !== id)
+      );
+      return { prev };
+    },
+    onError: (_err, _id, context) => {
+      if (context?.prev) queryClient.setQueryData(queryKey, context.prev);
+    },
+    onSettled: () => queryClient.invalidateQueries({ queryKey }),
+  });
+
+  const toggleSoldOut = useCallback((id: string) => {
+    soldOutMutation.mutate(id);
+  }, [soldOutMutation]);
+
+  const toggleSizeSoldOut = useCallback((id: string, size: string) => {
+    sizeSoldOutMutation.mutate({ id, size });
+  }, [sizeSoldOutMutation]);
+
+  const toggleAgeGroup = useCallback((id: string, age: 'kids' | 'adult') => {
+    ageGroupMutation.mutate({ id, age });
+  }, [ageGroupMutation]);
+
+  const isSoldOut = useCallback(
+    (id: string) => {
+      const p = products.find((p) => p._id === id);
+      if (!p) return false;
+      if (p.soldOut) return true;
+      if (p.soldOutSizes && p.soldOutSizes.length >= ALL_SIZES.length) {
+        return ALL_SIZES.every((s) => p.soldOutSizes.includes(s));
+      }
+      return false;
+    },
+    [products]
+  );
 
   const getSoldOutSizesForProduct = useCallback(
     (id: string): string[] => {
@@ -146,17 +160,15 @@ export function useProductState(location?: string) {
   );
 
   const addProduct = useCallback(
-    async (product: { name: string; number: number; category: number; price: number; image?: File; location?: string }) => {
-      const created = await apiCreateProduct(product);
-      setProducts((prev) => [...prev, created]);
+    async (product: { name: string; number: number; category: number; price: number; image?: File }) => {
+      return addMutation.mutateAsync(product);
     },
-    []
+    [addMutation]
   );
 
   const removeProduct = useCallback(async (id: string) => {
-    await apiDeleteProduct(id);
-    setProducts((prev) => prev.filter((p) => p._id !== id));
-  }, []);
+    return deleteMutation.mutateAsync(id);
+  }, [deleteMutation]);
 
   return {
     products,
@@ -165,8 +177,8 @@ export function useProductState(location?: string) {
     isSoldOut,
     toggleSizeSoldOut,
     getSoldOutSizesForProduct,
+    toggleAgeGroup,
     addProduct,
     removeProduct,
-    reload,
   };
 }

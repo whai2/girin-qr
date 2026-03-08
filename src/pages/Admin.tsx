@@ -1,35 +1,136 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { isAdminAuthenticated, adminLogout } from './AdminLogin';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useAuth } from '../contexts/AuthContext';
 import { useProductState } from '../hooks/useProductState';
 import { ALL_SIZES } from '../hooks/useProductState';
-import { CATEGORY_NAMES } from '../data/products';
-import { POPUP_STORES } from '../data/popupStores';
+import { fetchStores, createStore, deleteStore, type Store } from '../api/products';
+import { fetchCategories, createCategory, updateCategory, deleteCategory, type Category } from '../api/categories';
 
 const TABS = ['전체리스트', '판매리스트', 'QR코드'];
 
-const categoryItems = [
-  { key: 0, label: '전체' },
-  ...Object.entries(CATEGORY_NAMES).map(([key, label]) => ({
-    key: Number(key),
-    label,
-  })),
-];
-
 export default function Admin() {
   const navigate = useNavigate();
-  const [activeLocationIdx, setActiveLocationIdx] = useState(0);
-  const activeStore = POPUP_STORES[activeLocationIdx];
+  const queryClient = useQueryClient();
+  const { isAuthenticated, loading: authLoading, permissions, role, logout } = useAuth();
+
+  // 서버에서 스토어 목록 조회
+  const { data: stores = [] } = useQuery({
+    queryKey: ['stores'],
+    queryFn: fetchStores,
+    enabled: isAuthenticated,
+  });
+
+  // 서버에서 카테고리 목록 조회
+  const { data: categories = [] } = useQuery({
+    queryKey: ['categories'],
+    queryFn: fetchCategories,
+    enabled: isAuthenticated,
+  });
+
+  // 카테고리 이름 맵 (order -> name)
+  const categoryNameMap: Record<number, string> = {};
+  categories.forEach((c) => { categoryNameMap[c.order] = c.name; });
+
+  const [activeLocationIdx, setActiveLocationIdx] = useState<number | null>(null);
+  const activeStore = activeLocationIdx !== null ? stores[activeLocationIdx] : null;
+
+  // 팝업 등록 폼
+  const [showStoreForm, setShowStoreForm] = useState(false);
+  const [storeFormName, setStoreFormName] = useState('');
+  const [storeFormSlug, setStoreFormSlug] = useState('');
+
+  // 카테고리 등록 폼
+  const [showCategoryForm, setShowCategoryForm] = useState(false);
+  const [categoryFormName, setCategoryFormName] = useState('');
+  const [categoryFormOrder, setCategoryFormOrder] = useState<number | ''>('');
+  const [editingCategory, setEditingCategory] = useState<Category | null>(null);
+  const [editCategoryName, setEditCategoryName] = useState('');
+
+  const createStoreMutation = useMutation({
+    mutationFn: (data: { slug: string; name: string }) => createStore(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['stores'] });
+      setShowStoreForm(false);
+      setStoreFormName('');
+      setStoreFormSlug('');
+    },
+  });
+
+  const deleteStoreMutation = useMutation({
+    mutationFn: (id: string) => deleteStore(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['stores'] });
+      setActiveLocationIdx(null);
+    },
+  });
+
+  const handleDeleteStore = () => {
+    if (!activeStore) return;
+    if (!confirm(`"${activeStore.name}" 팝업을 삭제하시겠습니까?\n해당 팝업의 모든 데이터가 삭제됩니다.`)) return;
+    deleteStoreMutation.mutate(activeStore._id);
+  };
+
+  const createCategoryMutation = useMutation({
+    mutationFn: (data: { name: string; order?: number }) => createCategory(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['categories'] });
+      setShowCategoryForm(false);
+      setCategoryFormName('');
+      setCategoryFormOrder('');
+    },
+  });
+
+  const updateCategoryMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: { name?: string; order?: number } }) => updateCategory(id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['categories'] });
+      setEditingCategory(null);
+      setEditCategoryName('');
+    },
+  });
+
+  const deleteCategoryMutation = useMutation({
+    mutationFn: (id: string) => deleteCategory(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['categories'] });
+    },
+  });
+
+  const handleCreateStore = () => {
+    if (!storeFormName.trim() || !storeFormSlug.trim()) return alert('이름과 슬러그를 입력하세요.');
+    createStoreMutation.mutate({ slug: storeFormSlug.trim(), name: storeFormName.trim() });
+  };
+
+  const handleCreateCategory = () => {
+    if (!categoryFormName.trim()) return alert('카테고리 이름을 입력하세요.');
+    createCategoryMutation.mutate({
+      name: categoryFormName.trim(),
+      ...(categoryFormOrder !== '' ? { order: categoryFormOrder } : {}),
+    });
+  };
+
+  const handleUpdateCategory = () => {
+    if (!editingCategory || !editCategoryName.trim()) return;
+    updateCategoryMutation.mutate({
+      id: editingCategory._id,
+      data: { name: editCategoryName.trim() },
+    });
+  };
+
+  const handleDeleteCategory = (cat: Category) => {
+    if (!confirm(`"${cat.name}" 카테고리를 삭제하시겠습니까?`)) return;
+    deleteCategoryMutation.mutate(cat._id);
+  };
 
   const {
     products,
-    toggleSoldOut,
-    isSoldOut,
     toggleSizeSoldOut,
     getSoldOutSizesForProduct,
+    toggleAgeGroup,
     addProduct,
     removeProduct,
-  } = useProductState(activeStore.slug);
+  } = useProductState(activeStore?.slug ?? '');
   const [activeTab, setActiveTab] = useState(0);
   const [activeCategory, setActiveCategory] = useState(0);
   const [search, setSearch] = useState('');
@@ -46,13 +147,13 @@ export default function Admin() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    if (!isAdminAuthenticated()) {
+    if (!authLoading && !isAuthenticated) {
       navigate('/admin/login');
     }
-  }, [navigate]);
+  }, [authLoading, isAuthenticated, navigate]);
 
   const handleLogout = () => {
-    adminLogout();
+    logout();
     navigate('/');
   };
 
@@ -88,7 +189,6 @@ export default function Admin() {
         category: formCategory,
         price: formPrice,
         image: formImage,
-        location: activeStore.slug,
       });
       resetForm();
       setShowAddForm(false);
@@ -103,7 +203,7 @@ export default function Admin() {
     await removeProduct(id);
   };
 
-  if (!isAdminAuthenticated()) return null;
+  if (authLoading || !isAuthenticated) return null;
 
   const filtered = products
     .filter((p) => activeCategory === 0 || p.category === activeCategory)
@@ -136,24 +236,74 @@ export default function Admin() {
       </div>
 
       {/* Location Tabs */}
-      <div className="flex gap-3 px-4 pb-4">
-        {POPUP_STORES.map((store, i) => (
+      <div className="flex gap-3 px-4 pb-4 overflow-x-auto">
+        {stores.map((store: Store, i: number) => (
           <button
             key={store.slug}
             onClick={() => setActiveLocationIdx(i)}
-            className={`px-8 py-3.5 text-lg font-bold rounded-xl transition-colors ${
+            className={`px-8 py-3.5 text-lg font-bold rounded-xl border transition-colors whitespace-nowrap ${
               activeLocationIdx === i
-                ? 'bg-[#ffdd71] text-black'
-                : 'bg-gray-100 text-gray-500'
+                ? 'bg-[#ffdd71] text-black border-black'
+                : 'bg-white text-black border-gray-300'
             }`}
           >
             {store.name}
           </button>
         ))}
+        {role === 'super_manager' && (
+          <button
+            onClick={() => setShowStoreForm(!showStoreForm)}
+            className="px-4 py-3.5 text-lg font-bold rounded-xl border border-dashed border-gray-400 text-gray-400 hover:border-black hover:text-black transition-colors"
+          >
+            +
+          </button>
+        )}
       </div>
 
+      {/* 팝업 등록 폼 */}
+      {showStoreForm && role === 'super_manager' && (
+        <div className="mx-4 mb-4 p-4 border-2 border-[#ffdd71] rounded-xl bg-[#fffbea]">
+          <h3 className="font-bold text-lg mb-3">새 팝업 등록</h3>
+          <div className="flex gap-3 mb-3">
+            <div className="flex-1">
+              <label className="block text-sm font-bold mb-1">이름</label>
+              <input
+                type="text"
+                value={storeFormName}
+                onChange={(e) => setStoreFormName(e.target.value)}
+                placeholder="예: 더현대 대구"
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-black"
+              />
+            </div>
+            <div className="flex-1">
+              <label className="block text-sm font-bold mb-1">슬러그</label>
+              <input
+                type="text"
+                value={storeFormSlug}
+                onChange={(e) => setStoreFormSlug(e.target.value)}
+                placeholder="예: the-hyundai-daegu"
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-black"
+              />
+            </div>
+          </div>
+          <button
+            onClick={handleCreateStore}
+            disabled={createStoreMutation.isPending}
+            className="w-full py-3 bg-black text-white font-bold rounded-lg disabled:opacity-50"
+          >
+            {createStoreMutation.isPending ? '등록 중...' : '팝업 등록'}
+          </button>
+        </div>
+      )}
+
+      {!activeStore ? (
+        <p className="text-center text-gray-300 text-xl font-bold py-40">
+          팝업 선택 먼저
+        </p>
+      ) : (
+      <>
       {/* Tabs */}
-      <div className="flex gap-6 px-4 pb-3 border-b border-gray-200">
+      <div className="flex gap-6 px-4 pb-3 border-b border-gray-200 items-center">
         {TABS.map((tab, i) => (
           <button
             key={tab}
@@ -167,6 +317,15 @@ export default function Admin() {
             {tab}
           </button>
         ))}
+        {role === 'super_manager' && activeStore && (
+          <button
+            onClick={handleDeleteStore}
+            disabled={deleteStoreMutation.isPending}
+            className="ml-auto text-sm text-red-500 font-bold pb-2 hover:text-red-700 transition-colors"
+          >
+            {deleteStoreMutation.isPending ? '삭제 중...' : '팝업 삭제'}
+          </button>
+        )}
       </div>
 
       {/* Search + 등록 버튼 */}
@@ -178,7 +337,7 @@ export default function Admin() {
           placeholder="검색"
           className="flex-1 border border-gray-300 rounded-lg px-4 py-3 text-base focus:outline-none focus:border-black"
         />
-        {activeTab === 0 && (
+        {activeTab === 0 && permissions.canDelete && (
           <button
             onClick={() => setShowAddForm(!showAddForm)}
             className="px-5 py-3 bg-[#ffdd71] text-black font-bold rounded-lg whitespace-nowrap"
@@ -245,8 +404,8 @@ export default function Admin() {
                 onChange={(e) => setFormCategory(Number(e.target.value))}
                 className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-black"
               >
-                {Object.entries(CATEGORY_NAMES).map(([key, label]) => (
-                  <option key={key} value={key}>{label}</option>
+                {categories.map((cat) => (
+                  <option key={cat._id} value={cat.order}>{cat.name}</option>
                 ))}
               </select>
             </div>
@@ -275,21 +434,128 @@ export default function Admin() {
       )}
 
       {/* Category Filter */}
-      <div className="flex gap-3 px-4 pb-4 overflow-x-auto">
-        {categoryItems.map((item) => (
-          <button
-            key={item.key}
-            onClick={() => setActiveCategory(item.key)}
-            className={`text-sm whitespace-nowrap transition-colors ${
-              activeCategory === item.key
-                ? 'text-black font-bold'
-                : 'text-gray-400'
-            }`}
-          >
-            {item.label}
-          </button>
+      <div className="flex gap-3 px-4 pb-4 overflow-x-auto items-center">
+        <button
+          onClick={() => setActiveCategory(0)}
+          className={`text-sm whitespace-nowrap transition-colors ${
+            activeCategory === 0
+              ? 'text-black font-bold'
+              : 'text-gray-400'
+          }`}
+        >
+          전체
+        </button>
+        {categories.map((cat) => (
+          <span key={cat._id} className="flex items-center gap-0.5 shrink-0">
+            <button
+              onClick={() => setActiveCategory(cat.order)}
+              onDoubleClick={() => {
+                if (role === 'super_manager') {
+                  setEditingCategory(cat);
+                  setEditCategoryName(cat.name);
+                }
+              }}
+              className={`text-sm whitespace-nowrap transition-colors ${
+                activeCategory === cat.order
+                  ? 'text-black font-bold'
+                  : 'text-gray-400'
+              }`}
+            >
+              {cat.name}
+            </button>
+            {role === 'super_manager' && (
+              <button
+                onClick={() => handleDeleteCategory(cat)}
+                className="text-gray-300 hover:text-red-500 transition-colors text-xs leading-none"
+              >
+                ×
+              </button>
+            )}
+          </span>
         ))}
+        {role === 'super_manager' && (
+          <button
+            onClick={() => setShowCategoryForm(!showCategoryForm)}
+            className="text-sm text-gray-400 hover:text-black transition-colors whitespace-nowrap"
+          >
+            +
+          </button>
+        )}
       </div>
+
+      {/* 카테고리 등록 폼 */}
+      {showCategoryForm && role === 'super_manager' && (
+        <div className="mx-4 mb-4 p-4 border-2 border-[#ffdd71] rounded-xl bg-[#fffbea]">
+          <h3 className="font-bold text-lg mb-3">새 카테고리 등록</h3>
+          <div className="flex gap-3 mb-3">
+            <div className="flex-1">
+              <label className="block text-sm font-bold mb-1">이름</label>
+              <input
+                type="text"
+                value={categoryFormName}
+                onChange={(e) => setCategoryFormName(e.target.value)}
+                placeholder="예: 기린 시즌4"
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-black"
+              />
+            </div>
+            <div className="w-24">
+              <label className="block text-sm font-bold mb-1">순서</label>
+              <input
+                type="number"
+                value={categoryFormOrder}
+                onChange={(e) => setCategoryFormOrder(e.target.value ? Number(e.target.value) : '')}
+                placeholder="자동"
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-black"
+              />
+            </div>
+          </div>
+          <button
+            onClick={handleCreateCategory}
+            disabled={createCategoryMutation.isPending}
+            className="w-full py-3 bg-black text-white font-bold rounded-lg disabled:opacity-50"
+          >
+            {createCategoryMutation.isPending ? '등록 중...' : '카테고리 등록'}
+          </button>
+        </div>
+      )}
+
+      {/* 카테고리 수정 모달 */}
+      {editingCategory && role === 'super_manager' && (
+        <div className="mx-4 mb-4 p-4 border-2 border-blue-300 rounded-xl bg-blue-50">
+          <h3 className="font-bold text-lg mb-3">카테고리 수정</h3>
+          <div className="mb-3">
+            <label className="block text-sm font-bold mb-1">이름</label>
+            <input
+              type="text"
+              value={editCategoryName}
+              onChange={(e) => setEditCategoryName(e.target.value)}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-black"
+            />
+          </div>
+          <div className="flex gap-2">
+            <button
+              onClick={handleUpdateCategory}
+              disabled={updateCategoryMutation.isPending}
+              className="flex-1 py-3 bg-black text-white font-bold rounded-lg disabled:opacity-50"
+            >
+              {updateCategoryMutation.isPending ? '수정 중...' : '수정'}
+            </button>
+            <button
+              onClick={() => handleDeleteCategory(editingCategory)}
+              disabled={deleteCategoryMutation.isPending}
+              className="px-5 py-3 bg-red-500 text-white font-bold rounded-lg disabled:opacity-50"
+            >
+              삭제
+            </button>
+            <button
+              onClick={() => { setEditingCategory(null); setEditCategoryName(''); }}
+              className="px-5 py-3 bg-gray-200 text-black font-bold rounded-lg"
+            >
+              취소
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Product List */}
       <div className="px-4 pb-8">
@@ -301,7 +567,6 @@ export default function Admin() {
           /* 전체리스트 */
           <div className="space-y-3">
             {filtered.map((product) => {
-              const soldOut = isSoldOut(product._id);
               return (
                 <div
                   key={product._id}
@@ -315,35 +580,43 @@ export default function Admin() {
                   <div className="flex-1 min-w-0">
                     <p className="text-base font-bold">{product.name}</p>
                     <p className="text-sm text-gray-400 mt-0.5">
-                      {CATEGORY_NAMES[product.category]}
-                    </p>
-                    <p className="text-sm text-gray-400 mt-0.5">
-                      {product.price.toLocaleString()}원
+                      {categoryNameMap[product.category] ?? '미분류'}
                     </p>
                     <div className="flex gap-2 mt-1">
-                      <button
-                        onClick={() => toggleSoldOut(product._id)}
-                        className="text-sm text-blue-500"
-                      >
-                        수정
-                      </button>
-                      <button
-                        onClick={() => handleDelete(product._id, product.name)}
-                        className="text-sm text-red-500"
-                      >
-                        삭제
-                      </button>
+                      {permissions.canDelete && (
+                        <button
+                          onClick={() => handleDelete(product._id, product.name)}
+                          className="text-sm text-red-500"
+                        >
+                          삭제
+                        </button>
+                      )}
                     </div>
                   </div>
-                  <span
-                    className={`w-20 h-20 rounded-full flex items-center justify-center text-sm font-bold shrink-0 border border-black ${
-                      soldOut
-                        ? 'bg-gray-300 text-gray-600'
-                        : 'bg-[#ffdd71] text-black'
-                    }`}
-                  >
-                    {soldOut ? '미판매' : '판매중'}
-                  </span>
+                  <div className="flex gap-1 shrink-0">
+                    <button
+                      onClick={() => permissions.canEdit && toggleAgeGroup(product._id, 'kids')}
+                      disabled={!permissions.canEdit}
+                      className={`w-16 h-16 rounded-full flex items-center justify-center text-xs font-bold border border-black transition-colors ${
+                        product.ageGroup?.includes('kids')
+                          ? 'bg-[#a7d8f0] text-black'
+                          : 'bg-gray-300 text-gray-400'
+                      } ${!permissions.canEdit ? 'cursor-not-allowed' : ''}`}
+                    >
+                      아동
+                    </button>
+                    <button
+                      onClick={() => permissions.canEdit && toggleAgeGroup(product._id, 'adult')}
+                      disabled={!permissions.canEdit}
+                      className={`w-16 h-16 rounded-full flex items-center justify-center text-xs font-bold border border-black transition-colors ${
+                        product.ageGroup?.includes('adult')
+                          ? 'bg-[#ffdd71] text-black'
+                          : 'bg-gray-300 text-gray-400'
+                      } ${!permissions.canEdit ? 'cursor-not-allowed' : ''}`}
+                    >
+                      성인
+                    </button>
+                  </div>
                 </div>
               );
             })}
@@ -367,7 +640,7 @@ export default function Admin() {
                     <div>
                       <p className="text-base font-bold">{product.name}</p>
                       <p className="text-sm text-gray-400">
-                        {CATEGORY_NAMES[product.category]}
+                        {categoryNameMap[product.category] ?? '미분류'}
                       </p>
                     </div>
                   </div>
@@ -402,6 +675,8 @@ export default function Admin() {
           </p>
         )}
       </div>
+      </>
+      )}
     </div>
   );
 }

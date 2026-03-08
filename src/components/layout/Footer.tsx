@@ -1,9 +1,9 @@
-import { Link, useLocation } from 'react-router-dom';
+import { useLocation } from 'react-router-dom';
 
 export default function Footer() {
   const location = useLocation();
   const isAdmin = location.pathname.startsWith('/admin');
-  const isProductDetail = location.pathname.startsWith('/product/');
+  const isProductDetail = location.pathname.includes('/product/');
 
   if (isAdmin) return null;
   if (isProductDetail) return null;
@@ -13,7 +13,7 @@ export default function Footer() {
       {/* Online Shop Button */}
       <div className="py-12">
         <a
-          href="https://smartstore.naver.com"
+          href="https://smartstore.naver.com/whensonurogreengiringreem"
           target="_blank"
           rel="noopener noreferrer"
           className="hover:opacity-70 transition-opacity"
@@ -29,12 +29,14 @@ export default function Footer() {
 
       {/* Staff Door (white background) */}
       <div className="w-full bg-white flex items-end justify-center pt-20 pb-12" style={{ boxShadow: '0 9999px 0 9999px white' }}>
-        <Link
-          to="/admin/login"
+        <a
+          href="/admin/login"
+          target="_blank"
+          rel="noopener noreferrer"
           className="hover:opacity-70 transition-opacity"
         >
           <img src="/wtl-staff-door.png" alt="관리자" style={{ height: '18rem' }} />
-        </Link>
+        </a>
       </div>
     </footer>
   );
