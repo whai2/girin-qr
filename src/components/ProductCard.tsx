@@ -1,21 +1,18 @@
 import { Link } from 'react-router-dom';
-import { motion } from 'framer-motion';
+
 import type { Product } from '../api/products';
 
 interface Props {
   product: Product;
-  index: number;
+
   soldOut?: boolean;
   soldOutSizes?: string[];
 }
 
-export default function ProductCard({ product, index, soldOut, soldOutSizes = [] }: Props) {
+export default function ProductCard({ product, soldOut, soldOutSizes = [] }: Props) {
   return (
     <Link to={`/product/${product._id}`}>
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.4, delay: index * 0.03 }}
+      <div
         className="flex flex-col items-center cursor-pointer"
       >
         <div className="w-full rounded-2xl overflow-hidden">
@@ -42,7 +39,7 @@ export default function ProductCard({ product, index, soldOut, soldOutSizes = []
             Sold out..
           </p>
         )}
-      </motion.div>
+      </div>
     </Link>
   );
 }

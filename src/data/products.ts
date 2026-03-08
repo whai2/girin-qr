@@ -21,8 +21,8 @@ export const CATEGORY_NAMES: Record<number, string> = {
 };
 
 export const products: Product[] = [
-  { id: 1, name: '11번 기린', number: 11, category: 1, image: '/girin-1-11.png', price: 20000 },
-  { id: 2, name: '22번 기린', number: 22, category: 1, image: '/girin-1-22.png', price: 20000 },
+  { id: 1, name: '11번 스페셜 에디션 골든 기린', number: 11, category: 1, image: '/girin-1-11.png', price: 20000 },
+  { id: 2, name: '22번 리미티드 컬렉션 레인보우 기린', number: 22, category: 1, image: '/girin-1-22.png', price: 20000 },
   { id: 3, name: '35번 기린', number: 35, category: 1, image: '/girin-1-35.png', price: 20000 },
   { id: 4, name: '51번 기린', number: 51, category: 1, image: '/girin-1-51.png', price: 20000 },
   { id: 5, name: '52번 기린', number: 52, category: 1, image: '/girin-1-52.png', price: 20000 },

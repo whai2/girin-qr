@@ -1,13 +1,35 @@
+import { useEffect, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useProductState } from '../hooks/useProductState';
 import ProductCard from '../components/ProductCard';
+
+const SCROLL_KEY = 'shop-scroll-y';
 
 export default function Shop() {
   const [searchParams] = useSearchParams();
   const categoryParam = searchParams.get('category');
   const activeCategory = categoryParam ? Number(categoryParam) : 0;
   const { products, isSoldOut, getSoldOutSizesForProduct } = useProductState();
+  const restoredRef = useRef(false);
+
+  useEffect(() => {
+    if (restoredRef.current) return;
+    const saved = sessionStorage.getItem(SCROLL_KEY);
+    if (saved) {
+      requestAnimationFrame(() => {
+        window.scrollTo(0, Number(saved));
+      });
+      sessionStorage.removeItem(SCROLL_KEY);
+    }
+    restoredRef.current = true;
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      sessionStorage.setItem(SCROLL_KEY, String(window.scrollY));
+    };
+  }, []);
 
   const filtered =
     activeCategory === 0
@@ -23,11 +45,10 @@ export default function Shop() {
         transition={{ duration: 0.3 }}
         className="grid grid-cols-3 gap-x-2 gap-y-5 md:gap-x-3 md:gap-y-6"
       >
-        {filtered.map((product, index) => (
+        {filtered.map((product) => (
           <ProductCard
             key={product._id}
             product={product}
-            index={index}
             soldOut={isSoldOut(product._id)}
             soldOutSizes={getSoldOutSizesForProduct(product._id)}
           />
