@@ -13,23 +13,35 @@ export default function Shop() {
   const { products, isSoldOut, getSoldOutSizesForProduct } = useProductState();
   const restoredRef = useRef(false);
 
+  // 스크롤 위치 저장 (클릭으로 페이지 떠나기 전에 저장)
   useEffect(() => {
-    if (restoredRef.current) return;
-    const saved = sessionStorage.getItem(SCROLL_KEY);
-    if (saved) {
-      requestAnimationFrame(() => {
-        window.scrollTo(0, Number(saved));
-      });
-      sessionStorage.removeItem(SCROLL_KEY);
-    }
-    restoredRef.current = true;
-  }, []);
-
-  useEffect(() => {
-    return () => {
+    const saveScroll = () => {
       sessionStorage.setItem(SCROLL_KEY, String(window.scrollY));
     };
+    // 링크 클릭 시 스크롤 위치 저장
+    const handleClick = (e: MouseEvent) => {
+      const anchor = (e.target as HTMLElement).closest('a');
+      if (anchor && anchor.href.includes('/product/')) {
+        saveScroll();
+      }
+    };
+    document.addEventListener('click', handleClick);
+    return () => document.removeEventListener('click', handleClick);
   }, []);
+
+  // 스크롤 위치 복원 (상품 로드 후)
+  useEffect(() => {
+    if (restoredRef.current || products.length === 0) return;
+    restoredRef.current = true;
+    const saved = sessionStorage.getItem(SCROLL_KEY);
+    if (saved) {
+      sessionStorage.removeItem(SCROLL_KEY);
+      // smooth scroll 무시하고 즉시 이동
+      setTimeout(() => {
+        window.scrollTo({ top: Number(saved), behavior: 'instant' as ScrollBehavior });
+      }, 50);
+    }
+  }, [products]);
 
   const filtered =
     activeCategory === 0
