@@ -66,7 +66,7 @@ export default function ProductDetail() {
 
       {/* Shop link button */}
       <a
-        href="https://smartstore.naver.com/whensonurogreengiringreem"
+        href={product.smartStoreUrl || 'https://smartstore.naver.com/whensonurogreengiringreem'}
         target="_blank"
         rel="noopener noreferrer"
         className="mt-6 hover:opacity-80 transition-opacity"

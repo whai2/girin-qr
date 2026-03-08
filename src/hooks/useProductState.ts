@@ -104,7 +104,7 @@ export function useProductState(storeSlug: string) {
 
   // 상품 등록
   const addMutation = useMutation({
-    mutationFn: (product: { name: string; number: number; category: number; price: number; image?: File }) =>
+    mutationFn: (product: { name: string; number: number; category: number; price: number; image?: File; smartStoreUrl?: string }) =>
       apiCreateProduct(product),
     onSettled: () => queryClient.invalidateQueries({ queryKey }),
   });
@@ -160,7 +160,7 @@ export function useProductState(storeSlug: string) {
   );
 
   const addProduct = useCallback(
-    async (product: { name: string; number: number; category: number; price: number; image?: File }) => {
+    async (product: { name: string; number: number; category: number; price: number; image?: File; smartStoreUrl?: string }) => {
       return addMutation.mutateAsync(product);
     },
     [addMutation]

@@ -15,6 +15,7 @@ export interface Product {
   category: number;
   image: string;
   price: number;
+  smartStoreUrl?: string;
 }
 
 // 장소별 상품 정보 (기본 정보 + 장소별 설정 merge)
@@ -39,6 +40,7 @@ export async function createProduct(data: {
   category: number;
   price: number;
   image?: File;
+  smartStoreUrl?: string;
 }): Promise<Product> {
   const form = new FormData();
   form.append('name', data.name);
@@ -46,6 +48,7 @@ export async function createProduct(data: {
   form.append('category', String(data.category));
   form.append('price', String(data.price));
   if (data.image) form.append('image', data.image);
+  if (data.smartStoreUrl) form.append('smartStoreUrl', data.smartStoreUrl);
 
   const res = await fetch(`${API_BASE}/products`, {
     method: 'POST',

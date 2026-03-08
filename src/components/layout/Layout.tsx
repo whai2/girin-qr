@@ -9,7 +9,7 @@ export default function Layout() {
   const isAdmin = location.pathname.startsWith('/admin');
 
   return (
-    <div className="min-h-screen flex flex-col">
+    <div className={`min-h-screen flex flex-col ${isAdmin ? 'bg-white' : ''}`}>
       {!isAdmin && <MarqueeBanner />}
       <Header />
       <main className="flex-1">

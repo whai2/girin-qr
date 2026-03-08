@@ -43,7 +43,6 @@ export default function Admin() {
   // 카테고리 등록 폼
   const [showCategoryForm, setShowCategoryForm] = useState(false);
   const [categoryFormName, setCategoryFormName] = useState('');
-  const [categoryFormOrder, setCategoryFormOrder] = useState<number | ''>('');
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
   const [editCategoryName, setEditCategoryName] = useState('');
 
@@ -77,7 +76,6 @@ export default function Admin() {
       queryClient.invalidateQueries({ queryKey: ['categories'] });
       setShowCategoryForm(false);
       setCategoryFormName('');
-      setCategoryFormOrder('');
     },
   });
 
@@ -106,7 +104,6 @@ export default function Admin() {
     if (!categoryFormName.trim()) return alert('카테고리 이름을 입력하세요.');
     createCategoryMutation.mutate({
       name: categoryFormName.trim(),
-      ...(categoryFormOrder !== '' ? { order: categoryFormOrder } : {}),
     });
   };
 
@@ -141,6 +138,7 @@ export default function Admin() {
   const [formNumber, setFormNumber] = useState(0);
   const [formCategory, setFormCategory] = useState(1);
   const [formPrice, setFormPrice] = useState(20000);
+  const [formSmartStoreUrl, setFormSmartStoreUrl] = useState('');
   const [formImage, setFormImage] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -172,6 +170,7 @@ export default function Admin() {
     setFormNumber(0);
     setFormCategory(1);
     setFormPrice(20000);
+    setFormSmartStoreUrl('');
     setFormImage(null);
     setImagePreview(null);
     if (fileInputRef.current) fileInputRef.current.value = '';
@@ -189,6 +188,7 @@ export default function Admin() {
         category: formCategory,
         price: formPrice,
         image: formImage,
+        ...(formSmartStoreUrl.trim() ? { smartStoreUrl: formSmartStoreUrl.trim() } : {}),
       });
       resetForm();
       setShowAddForm(false);
@@ -412,12 +412,24 @@ export default function Admin() {
           </div>
 
           {/* 가격 */}
-          <div className="mb-4">
+          <div className="mb-3">
             <label className="block text-sm font-bold mb-1">가격 (원)</label>
             <input
               type="number"
               value={formPrice}
               onChange={(e) => setFormPrice(Number(e.target.value))}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-black"
+            />
+          </div>
+
+          {/* 스마트스토어 URL */}
+          <div className="mb-4">
+            <label className="block text-sm font-bold mb-1">스마트스토어 URL</label>
+            <input
+              type="url"
+              value={formSmartStoreUrl}
+              onChange={(e) => setFormSmartStoreUrl(e.target.value)}
+              placeholder="https://smartstore.naver.com/..."
               className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-black"
             />
           </div>
@@ -487,27 +499,15 @@ export default function Admin() {
       {showCategoryForm && role === 'super_manager' && (
         <div className="mx-4 mb-4 p-4 border-2 border-[#ffdd71] rounded-xl bg-[#fffbea]">
           <h3 className="font-bold text-lg mb-3">새 카테고리 등록</h3>
-          <div className="flex gap-3 mb-3">
-            <div className="flex-1">
-              <label className="block text-sm font-bold mb-1">이름</label>
-              <input
-                type="text"
-                value={categoryFormName}
-                onChange={(e) => setCategoryFormName(e.target.value)}
-                placeholder="예: 기린 시즌4"
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-black"
-              />
-            </div>
-            <div className="w-24">
-              <label className="block text-sm font-bold mb-1">순서</label>
-              <input
-                type="number"
-                value={categoryFormOrder}
-                onChange={(e) => setCategoryFormOrder(e.target.value ? Number(e.target.value) : '')}
-                placeholder="자동"
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-black"
-              />
-            </div>
+          <div className="mb-3">
+            <label className="block text-sm font-bold mb-1">이름</label>
+            <input
+              type="text"
+              value={categoryFormName}
+              onChange={(e) => setCategoryFormName(e.target.value)}
+              placeholder="예: 기린 시즌4"
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-black"
+            />
           </div>
           <button
             onClick={handleCreateCategory}
