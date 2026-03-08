@@ -12,6 +12,12 @@ export const CATEGORY_NAMES: Record<number, string> = {
   2: '시리즈 2',
   3: '시리즈 3',
   4: '한식 시리즈',
+  5: '시리즈 5',
+  6: '시리즈 6',
+  7: '시리즈 7',
+  8: '시리즈 8',
+  9: '시리즈 9',
+  10: '시리즈 10',
 };
 
 export const products: Product[] = [
