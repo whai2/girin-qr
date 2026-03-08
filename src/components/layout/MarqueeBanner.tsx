@@ -5,13 +5,13 @@ export default function MarqueeBanner() {
         <img
           src="/wtl-marquee.png"
           alt="banner"
-          className="h-3.5 md:h-5 block"
+          className="h-5 md:h-7 block"
           draggable={false}
         />
         <img
           src="/wtl-marquee.png"
           alt="banner"
-          className="h-3.5 md:h-5 block"
+          className="h-5 md:h-7 block"
           draggable={false}
         />
       </div>
