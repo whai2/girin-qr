@@ -16,14 +16,14 @@ export default function Header() {
   if (isAdmin) return null;
 
   return (
-    <header className="pt-10 pb-4">
+    <header className="pt-7 pb-4">
       {/* Logo */}
       <div className="text-center mb-6">
         <Link to="/">
           <img
             src="/wtl-logo.png"
             alt="WTL - WGGG T-SHIRTS LIST"
-            className="h-20 md:h-28 mx-auto"
+            className="h-24 md:h-32 mx-auto"
           />
         </Link>
       </div>
