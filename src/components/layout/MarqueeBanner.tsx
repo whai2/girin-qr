@@ -1,6 +1,6 @@
 export default function MarqueeBanner() {
   return (
-    <div className="w-full bg-red-600 overflow-hidden sticky top-0 z-50">
+    <div className="w-full bg-red-600 overflow-hidden sticky top-0 z-50 py-1">
       <div className="flex w-max animate-marquee">
         <img
           src="/wtl-marquee.png"
