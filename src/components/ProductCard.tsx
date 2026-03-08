@@ -1,9 +1,9 @@
 import { Link, useParams } from 'react-router-dom';
 
-import type { Product } from '../api/products';
+import type { StoreProduct } from '../api/products';
 
 interface Props {
-  product: Product;
+  product: StoreProduct;
 
   soldOut?: boolean;
   soldOutSizes?: string[];
@@ -29,6 +29,15 @@ export default function ProductCard({ product, soldOut, soldOutSizes = [] }: Pro
           </div>
         </div>
         <p className="mt-0.5 text-sm font-bold text-center">{product.name}</p>
+        {product.ageGroup && product.ageGroup.length > 0 && (
+          <p className="text-xs text-gray-500 text-center">
+            {product.ageGroup.length === 2
+              ? '둘 다 있음'
+              : product.ageGroup[0] === 'kids'
+                ? '아동만 있음'
+                : '성인만 있음'}
+          </p>
+        )}
         {soldOutSizes.length > 0 && (
           <div className="text-center mt-0.5">
             <p className="text-sm text-red-500">{soldOutSizes.join(', ')}</p>

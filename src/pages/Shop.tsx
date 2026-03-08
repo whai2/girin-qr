@@ -14,6 +14,7 @@ export default function Shop() {
   const [searchParams] = useSearchParams();
   const categoryParam = searchParams.get("category");
   const activeCategory = categoryParam ? Number(categoryParam) : 0;
+  const activeSize = searchParams.get("size") || "";
   const { products, isSoldOut, getSoldOutSizesForProduct } =
     useProductState(storeSlug);
   const restoredRef = useRef(false);
@@ -51,10 +52,11 @@ export default function Shop() {
     }
   }, [products]);
 
-  const filtered =
-    activeCategory === 0
-      ? products
-      : products.filter((p) => p.category === activeCategory);
+  const filtered = products.filter((p) => {
+    if (activeCategory !== 0 && p.category !== activeCategory) return false;
+    if (activeSize && (!p.ageGroup || !p.ageGroup.includes(activeSize as 'kids' | 'adult'))) return false;
+    return true;
+  });
 
   // 유효하지 않은 스토어 slug인 경우
   if (storeSlug && !store) {
