@@ -1,107 +1,77 @@
 import { useState, useCallback, useEffect } from 'react';
-import { products as defaultProducts, type Product } from '../data/products';
+import {
+  fetchProducts,
+  toggleSoldOut as apiToggleSoldOut,
+  toggleSizeSoldOut as apiToggleSizeSoldOut,
+  createProduct as apiCreateProduct,
+  deleteProduct as apiDeleteProduct,
+  type Product,
+} from '../api/products';
 
-const SOLD_OUT_KEY = 'girin_sold_out';
-const CUSTOM_PRODUCTS_KEY = 'girin_custom_products';
-const SOLD_OUT_SIZES_KEY = 'girin_sold_out_sizes';
+export type { Product };
 
 export const ALL_SIZES = [
   '110', '120', '130', '140', '150',
   'XS', 'S', 'M', 'L', 'XL', '2XL', '3XL', '4XL',
 ];
 
-function getSoldOutIds(): number[] {
-  try {
-    return JSON.parse(localStorage.getItem(SOLD_OUT_KEY) || '[]');
-  } catch {
-    return [];
-  }
-}
-
-function getCustomProducts(): Product[] {
-  try {
-    return JSON.parse(localStorage.getItem(CUSTOM_PRODUCTS_KEY) || '[]');
-  } catch {
-    return [];
-  }
-}
-
-function getSoldOutSizes(): Record<number, string[]> {
-  try {
-    return JSON.parse(localStorage.getItem(SOLD_OUT_SIZES_KEY) || '{}');
-  } catch {
-    return {};
-  }
-}
-
 export function useProductState() {
-  const [soldOutIds, setSoldOutIds] = useState<number[]>(getSoldOutIds);
-  const [customProducts, setCustomProducts] = useState<Product[]>(getCustomProducts);
-  const [soldOutSizes, setSoldOutSizes] = useState<Record<number, string[]>>(getSoldOutSizes);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const allProducts = [...defaultProducts, ...customProducts];
-
-  useEffect(() => {
-    localStorage.setItem(SOLD_OUT_KEY, JSON.stringify(soldOutIds));
-  }, [soldOutIds]);
-
-  useEffect(() => {
-    localStorage.setItem(CUSTOM_PRODUCTS_KEY, JSON.stringify(customProducts));
-  }, [customProducts]);
+  const reload = useCallback(async () => {
+    const data = await fetchProducts();
+    setProducts(data);
+    setLoading(false);
+  }, []);
 
   useEffect(() => {
-    localStorage.setItem(SOLD_OUT_SIZES_KEY, JSON.stringify(soldOutSizes));
-  }, [soldOutSizes]);
+    reload();
+  }, [reload]);
 
-  const toggleSoldOut = useCallback((id: number) => {
-    setSoldOutIds((prev) =>
-      prev.includes(id) ? prev.filter((v) => v !== id) : [...prev, id]
-    );
+  const toggleSoldOut = useCallback(async (id: string) => {
+    const updated = await apiToggleSoldOut(id);
+    setProducts((prev) => prev.map((p) => (p._id === id ? updated : p)));
   }, []);
 
   const isSoldOut = useCallback(
-    (id: number) => soldOutIds.includes(id),
-    [soldOutIds]
+    (id: string) => products.find((p) => p._id === id)?.soldOut ?? false,
+    [products]
   );
 
-  const toggleSizeSoldOut = useCallback((productId: number, size: string) => {
-    setSoldOutSizes((prev) => {
-      const current = prev[productId] || [];
-      const updated = current.includes(size)
-        ? current.filter((s) => s !== size)
-        : [...current, size];
-      return { ...prev, [productId]: updated };
-    });
+  const toggleSizeSoldOut = useCallback(async (id: string, size: string) => {
+    const updated = await apiToggleSizeSoldOut(id, size);
+    setProducts((prev) => prev.map((p) => (p._id === id ? updated : p)));
   }, []);
 
   const getSoldOutSizesForProduct = useCallback(
-    (productId: number): string[] => soldOutSizes[productId] || [],
-    [soldOutSizes]
+    (id: string): string[] =>
+      products.find((p) => p._id === id)?.soldOutSizes ?? [],
+    [products]
   );
 
-  const addProduct = useCallback((product: Omit<Product, 'id'>) => {
-    setCustomProducts((prev) => {
-      const maxId = Math.max(
-        ...defaultProducts.map((p) => p.id),
-        ...prev.map((p) => p.id),
-        0
-      );
-      return [...prev, { ...product, id: maxId + 1 }];
-    });
-  }, []);
+  const addProduct = useCallback(
+    async (product: { name: string; number: number; category: number; price: number; image?: File }) => {
+      const created = await apiCreateProduct(product);
+      setProducts((prev) => [...prev, created]);
+    },
+    []
+  );
 
-  const removeProduct = useCallback((id: number) => {
-    setCustomProducts((prev) => prev.filter((p) => p.id !== id));
+  const removeProduct = useCallback(async (id: string) => {
+    await apiDeleteProduct(id);
+    setProducts((prev) => prev.filter((p) => p._id !== id));
   }, []);
 
   return {
-    products: allProducts,
-    soldOutIds,
+    products,
+    loading,
     toggleSoldOut,
     isSoldOut,
     toggleSizeSoldOut,
     getSoldOutSizesForProduct,
     addProduct,
     removeProduct,
+    reload,
   };
 }

@@ -25,10 +25,10 @@ export default function Shop() {
       >
         {filtered.map((product, index) => (
           <ProductCard
-            key={product.id}
+            key={product._id}
             product={product}
             index={index}
-            soldOut={isSoldOut(product.id)}
+            soldOut={isSoldOut(product._id)}
           />
         ))}
       </motion.div>

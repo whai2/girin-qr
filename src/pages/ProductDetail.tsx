@@ -7,7 +7,7 @@ export default function ProductDetail() {
   const navigate = useNavigate();
   const { products, isSoldOut, getSoldOutSizesForProduct } = useProductState();
 
-  const product = products.find((p) => p.id === Number(id));
+  const product = products.find((p) => p._id === id);
 
   if (!product) {
     return (
@@ -23,8 +23,8 @@ export default function ProductDetail() {
     );
   }
 
-  const soldOut = isSoldOut(product.id);
-  const soldOutSizes = getSoldOutSizesForProduct(product.id);
+  const soldOut = isSoldOut(product._id);
+  const soldOutSizes = getSoldOutSizesForProduct(product._id);
 
   return (
     <motion.div

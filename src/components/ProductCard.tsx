@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import type { Product } from '../data/products';
+import type { Product } from '../api/products';
 
 interface Props {
   product: Product;
@@ -10,7 +10,7 @@ interface Props {
 
 export default function ProductCard({ product, index, soldOut }: Props) {
   return (
-    <Link to={`/product/${product.id}`}>
+    <Link to={`/product/${product._id}`}>
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
