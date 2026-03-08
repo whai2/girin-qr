@@ -11,9 +11,38 @@ import { products as defaultProducts } from '../data/products';
 
 export type { Product };
 
+// localStorage 캐시 키
+const CACHE_KEY = 'girin_product_state';
+
+function loadCache(): Record<string, { soldOut: boolean; soldOutSizes: string[] }> {
+  try {
+    const raw = localStorage.getItem(CACHE_KEY);
+    return raw ? JSON.parse(raw) : {};
+  } catch {
+    return {};
+  }
+}
+
+function saveCache(products: Product[]) {
+  const cache: Record<string, { soldOut: boolean; soldOutSizes: string[] }> = {};
+  for (const p of products) {
+    if (p.soldOut || (p.soldOutSizes && p.soldOutSizes.length > 0)) {
+      cache[p._id] = { soldOut: p.soldOut, soldOutSizes: p.soldOutSizes || [] };
+    }
+  }
+  localStorage.setItem(CACHE_KEY, JSON.stringify(cache));
+}
+
 // API 실패 시 기존 하드코딩 데이터를 fallback으로 사용
 function toApiProduct(p: { id: number; name: string; number: number; category: number; image: string; price: number }): Product {
-  return { _id: String(p.id), name: p.name, number: p.number, category: p.category, image: p.image, price: p.price, soldOut: false, soldOutSizes: [] };
+  const cache = loadCache();
+  const cached = cache[String(p.id)];
+  return {
+    _id: String(p.id), name: p.name, number: p.number, category: p.category,
+    image: p.image, price: p.price,
+    soldOut: cached?.soldOut ?? false,
+    soldOutSizes: cached?.soldOutSizes ?? [],
+  };
 }
 
 export const ALL_SIZES = [
@@ -43,19 +72,68 @@ export function useProductState() {
     reload();
   }, [reload]);
 
+  // products 변경 시 localStorage에 캐시 저장
+  useEffect(() => {
+    if (products.length > 0) {
+      saveCache(products);
+    }
+  }, [products]);
+
   const toggleSoldOut = useCallback(async (id: string) => {
-    const updated = await apiToggleSoldOut(id);
-    setProducts((prev) => prev.map((p) => (p._id === id ? updated : p)));
+    try {
+      const updated = await apiToggleSoldOut(id);
+      if (updated && updated._id) {
+        setProducts((prev) => prev.map((p) => (p._id === id ? updated : p)));
+      } else {
+        throw new Error('Invalid response');
+      }
+    } catch {
+      // API 실패 시 로컬 상태만 토글
+      setProducts((prev) =>
+        prev.map((p) =>
+          p._id === id ? { ...p, soldOut: !p.soldOut } : p
+        )
+      );
+    }
   }, []);
 
   const isSoldOut = useCallback(
-    (id: string) => products.find((p) => p._id === id)?.soldOut ?? false,
+    (id: string) => {
+      const p = products.find((p) => p._id === id);
+      if (!p) return false;
+      if (p.soldOut) return true;
+      // 모든 사이즈가 품절이면 soldOut으로 간주
+      if (p.soldOutSizes && p.soldOutSizes.length >= ALL_SIZES.length) {
+        return ALL_SIZES.every((s) => p.soldOutSizes.includes(s));
+      }
+      return false;
+    },
     [products]
   );
 
   const toggleSizeSoldOut = useCallback(async (id: string, size: string) => {
-    const updated = await apiToggleSizeSoldOut(id, size);
-    setProducts((prev) => prev.map((p) => (p._id === id ? updated : p)));
+    try {
+      const updated = await apiToggleSizeSoldOut(id, size);
+      if (updated && updated._id) {
+        setProducts((prev) => prev.map((p) => (p._id === id ? updated : p)));
+      } else {
+        throw new Error('Invalid response');
+      }
+    } catch {
+      // API 실패 시 로컬 상태만 토글
+      setProducts((prev) =>
+        prev.map((p) => {
+          if (p._id !== id) return p;
+          const sizes = p.soldOutSizes || [];
+          return {
+            ...p,
+            soldOutSizes: sizes.includes(size)
+              ? sizes.filter((s) => s !== size)
+              : [...sizes, size],
+          };
+        })
+      );
+    }
   }, []);
 
   const getSoldOutSizesForProduct = useCallback(

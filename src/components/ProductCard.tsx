@@ -6,9 +6,10 @@ interface Props {
   product: Product;
   index: number;
   soldOut?: boolean;
+  soldOutSizes?: string[];
 }
 
-export default function ProductCard({ product, index, soldOut }: Props) {
+export default function ProductCard({ product, index, soldOut, soldOutSizes = [] }: Props) {
   return (
     <Link to={`/product/${product._id}`}>
       <motion.div
@@ -29,8 +30,14 @@ export default function ProductCard({ product, index, soldOut }: Props) {
             />
           </div>
         </div>
-        <p className="mt-2 text-sm font-bold text-center">{product.name}</p>
-        {soldOut && (
+        <p className="mt-0.5 text-sm font-bold text-center">{product.name}</p>
+        {soldOutSizes.length > 0 && (
+          <div className="text-center mt-0.5">
+            <p className="text-sm text-red-500">{soldOutSizes.join(', ')}</p>
+            <p className="text-sm text-red-500 font-bold">Sold out..</p>
+          </div>
+        )}
+        {soldOut && soldOutSizes.length === 0 && (
           <p className="text-xs text-red-500 font-bold text-center mt-0.5">
             Sold out..
           </p>

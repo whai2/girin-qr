@@ -7,7 +7,7 @@ export default function Shop() {
   const [searchParams] = useSearchParams();
   const categoryParam = searchParams.get('category');
   const activeCategory = categoryParam ? Number(categoryParam) : 0;
-  const { products, isSoldOut } = useProductState();
+  const { products, isSoldOut, getSoldOutSizesForProduct } = useProductState();
 
   const filtered =
     activeCategory === 0
@@ -15,13 +15,13 @@ export default function Shop() {
       : products.filter((p) => p.category === activeCategory);
 
   return (
-    <div className="px-4 md:px-12 pb-8">
+    <div className="px-2 md:px-8 pb-8">
       <motion.div
         key={activeCategory}
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 0.3 }}
-        className="grid grid-cols-3 gap-4 md:gap-6"
+        className="grid grid-cols-3 gap-x-2 gap-y-5 md:gap-x-3 md:gap-y-6"
       >
         {filtered.map((product, index) => (
           <ProductCard
@@ -29,6 +29,7 @@ export default function Shop() {
             product={product}
             index={index}
             soldOut={isSoldOut(product._id)}
+            soldOutSizes={getSoldOutSizesForProduct(product._id)}
           />
         ))}
       </motion.div>
