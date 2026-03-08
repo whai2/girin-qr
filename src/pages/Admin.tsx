@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { isAdminAuthenticated, adminLogout } from './AdminLogin';
 import { useProductState } from '../hooks/useProductState';
@@ -24,12 +24,25 @@ export default function Admin() {
     isSoldOut,
     toggleSizeSoldOut,
     getSoldOutSizesForProduct,
+    addProduct,
+    removeProduct,
   } = useProductState();
 
   const [activeLocation, setActiveLocation] = useState(0);
   const [activeTab, setActiveTab] = useState(0);
   const [activeCategory, setActiveCategory] = useState(0);
   const [search, setSearch] = useState('');
+
+  // 상품 등록 폼 상태
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [formName, setFormName] = useState('');
+  const [formNumber, setFormNumber] = useState(0);
+  const [formCategory, setFormCategory] = useState(1);
+  const [formPrice, setFormPrice] = useState(20000);
+  const [formImage, setFormImage] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!isAdminAuthenticated()) {
@@ -40,6 +53,52 @@ export default function Admin() {
   const handleLogout = () => {
     adminLogout();
     navigate('/');
+  };
+
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setFormImage(file);
+      const reader = new FileReader();
+      reader.onloadend = () => setImagePreview(reader.result as string);
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const resetForm = () => {
+    setFormName('');
+    setFormNumber(0);
+    setFormCategory(1);
+    setFormPrice(20000);
+    setFormImage(null);
+    setImagePreview(null);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  const handleSubmit = async () => {
+    if (!formName.trim()) return alert('상품명을 입력하세요.');
+    if (!formImage) return alert('이미지를 선택하세요.');
+
+    setIsSubmitting(true);
+    try {
+      await addProduct({
+        name: formName,
+        number: formNumber,
+        category: formCategory,
+        price: formPrice,
+        image: formImage,
+      });
+      resetForm();
+      setShowAddForm(false);
+    } catch {
+      alert('등록에 실패했습니다.');
+    }
+    setIsSubmitting(false);
+  };
+
+  const handleDelete = async (id: string, name: string) => {
+    if (!confirm(`"${name}" 상품을 삭제하시겠습니까?`)) return;
+    await removeProduct(id);
   };
 
   if (!isAdminAuthenticated()) return null;
@@ -108,16 +167,110 @@ export default function Admin() {
         ))}
       </div>
 
-      {/* Search */}
-      <div className="px-4 py-3">
+      {/* Search + 등록 버튼 */}
+      <div className="px-4 py-3 flex gap-2">
         <input
           type="text"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="검색"
-          className="w-full border border-gray-300 rounded-lg px-4 py-3 text-base focus:outline-none focus:border-black"
+          className="flex-1 border border-gray-300 rounded-lg px-4 py-3 text-base focus:outline-none focus:border-black"
         />
+        {activeTab === 0 && (
+          <button
+            onClick={() => setShowAddForm(!showAddForm)}
+            className="px-5 py-3 bg-[#ffdd71] text-black font-bold rounded-lg whitespace-nowrap"
+          >
+            {showAddForm ? '닫기' : '+ 등록'}
+          </button>
+        )}
       </div>
+
+      {/* 상품 등록 폼 */}
+      {showAddForm && activeTab === 0 && (
+        <div className="mx-4 mb-4 p-4 border-2 border-[#ffdd71] rounded-xl bg-[#fffbea]">
+          <h3 className="font-bold text-lg mb-3">새 상품 등록</h3>
+
+          {/* 이미지 업로드 */}
+          <div className="mb-3">
+            <label className="block text-sm font-bold mb-1">이미지</label>
+            <div
+              onClick={() => fileInputRef.current?.click()}
+              className="w-32 h-32 border-2 border-dashed border-gray-300 rounded-xl flex items-center justify-center cursor-pointer hover:border-black transition-colors overflow-hidden"
+            >
+              {imagePreview ? (
+                <img src={imagePreview} alt="미리보기" className="w-full h-full object-cover" />
+              ) : (
+                <span className="text-gray-400 text-sm text-center">클릭하여<br />이미지 선택</span>
+              )}
+            </div>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/png,image/jpeg,image/webp"
+              onChange={handleImageChange}
+              className="hidden"
+            />
+          </div>
+
+          {/* 상품명 */}
+          <div className="mb-3">
+            <label className="block text-sm font-bold mb-1">상품명</label>
+            <input
+              type="text"
+              value={formName}
+              onChange={(e) => setFormName(e.target.value)}
+              placeholder="예: 11번 기린"
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-black"
+            />
+          </div>
+
+          {/* 번호 + 카테고리 */}
+          <div className="flex gap-3 mb-3">
+            <div className="flex-1">
+              <label className="block text-sm font-bold mb-1">번호</label>
+              <input
+                type="number"
+                value={formNumber}
+                onChange={(e) => setFormNumber(Number(e.target.value))}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-black"
+              />
+            </div>
+            <div className="flex-1">
+              <label className="block text-sm font-bold mb-1">카테고리</label>
+              <select
+                value={formCategory}
+                onChange={(e) => setFormCategory(Number(e.target.value))}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-black"
+              >
+                {Object.entries(CATEGORY_NAMES).map(([key, label]) => (
+                  <option key={key} value={key}>{label}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {/* 가격 */}
+          <div className="mb-4">
+            <label className="block text-sm font-bold mb-1">가격 (원)</label>
+            <input
+              type="number"
+              value={formPrice}
+              onChange={(e) => setFormPrice(Number(e.target.value))}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-black"
+            />
+          </div>
+
+          {/* 등록 버튼 */}
+          <button
+            onClick={handleSubmit}
+            disabled={isSubmitting}
+            className="w-full py-3 bg-black text-white font-bold rounded-lg disabled:opacity-50"
+          >
+            {isSubmitting ? '등록 중...' : '상품 등록'}
+          </button>
+        </div>
+      )}
 
       {/* Category Filter */}
       <div className="flex gap-3 px-4 pb-4 overflow-x-auto">
@@ -146,10 +299,10 @@ export default function Admin() {
           /* 전체리스트 */
           <div className="space-y-3">
             {filtered.map((product) => {
-              const soldOut = isSoldOut(product.id);
+              const soldOut = isSoldOut(product._id);
               return (
                 <div
-                  key={product.id}
+                  key={product._id}
                   className="flex items-center gap-4 border border-black rounded-xl p-3"
                 >
                   <img
@@ -165,12 +318,20 @@ export default function Admin() {
                     <p className="text-sm text-gray-400 mt-0.5">
                       {product.price.toLocaleString()}원
                     </p>
-                    <button
-                      onClick={() => toggleSoldOut(product.id)}
-                      className="text-sm text-blue-500 mt-1"
-                    >
-                      수정
-                    </button>
+                    <div className="flex gap-2 mt-1">
+                      <button
+                        onClick={() => toggleSoldOut(product._id)}
+                        className="text-sm text-blue-500"
+                      >
+                        수정
+                      </button>
+                      <button
+                        onClick={() => handleDelete(product._id, product.name)}
+                        className="text-sm text-red-500"
+                      >
+                        삭제
+                      </button>
+                    </div>
                   </div>
                   <span
                     className={`w-20 h-20 rounded-full flex items-center justify-center text-sm font-bold shrink-0 border border-black ${
@@ -189,10 +350,10 @@ export default function Admin() {
           /* 판매리스트 - 사이즈별 품절 관리 */
           <div className="space-y-4">
             {filtered.map((product) => {
-              const soldOutSizes = getSoldOutSizesForProduct(product.id);
+              const soldOutSizes = getSoldOutSizesForProduct(product._id);
               return (
                 <div
-                  key={product.id}
+                  key={product._id}
                   className="border border-black rounded-xl p-4"
                 >
                   <div className="flex gap-4 mb-3">
@@ -215,7 +376,7 @@ export default function Admin() {
                       return (
                         <button
                           key={size}
-                          onClick={() => toggleSizeSoldOut(product.id, size)}
+                          onClick={() => toggleSizeSoldOut(product._id, size)}
                           className={`py-2 rounded-lg text-sm font-bold border transition-colors ${
                             isSizeSoldOut
                               ? 'bg-red-500 text-white border-red-500'
