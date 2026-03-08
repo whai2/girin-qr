@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
 
 import type { Product } from '../api/products';
 
@@ -10,8 +10,9 @@ interface Props {
 }
 
 export default function ProductCard({ product, soldOut, soldOutSizes = [] }: Props) {
+  const { storeSlug } = useParams<{ storeSlug: string }>();
   return (
-    <Link to={`/product/${product._id}`}>
+    <Link to={`/${storeSlug}/product/${product._id}`}>
       <div
         className="flex flex-col items-center cursor-pointer"
       >

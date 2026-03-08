@@ -4,8 +4,8 @@ import { isAdminAuthenticated, adminLogout } from './AdminLogin';
 import { useProductState } from '../hooks/useProductState';
 import { ALL_SIZES } from '../hooks/useProductState';
 import { CATEGORY_NAMES } from '../data/products';
+import { POPUP_STORES } from '../data/popupStores';
 
-const LOCATIONS = ['더현대 대구', '신세계 강남'];
 const TABS = ['전체리스트', '판매리스트', 'QR코드'];
 
 const categoryItems = [
@@ -18,6 +18,9 @@ const categoryItems = [
 
 export default function Admin() {
   const navigate = useNavigate();
+  const [activeLocationIdx, setActiveLocationIdx] = useState(0);
+  const activeStore = POPUP_STORES[activeLocationIdx];
+
   const {
     products,
     toggleSoldOut,
@@ -26,9 +29,7 @@ export default function Admin() {
     getSoldOutSizesForProduct,
     addProduct,
     removeProduct,
-  } = useProductState();
-
-  const [activeLocation, setActiveLocation] = useState(0);
+  } = useProductState(activeStore.slug);
   const [activeTab, setActiveTab] = useState(0);
   const [activeCategory, setActiveCategory] = useState(0);
   const [search, setSearch] = useState('');
@@ -87,6 +88,7 @@ export default function Admin() {
         category: formCategory,
         price: formPrice,
         image: formImage,
+        location: activeStore.slug,
       });
       resetForm();
       setShowAddForm(false);
@@ -135,17 +137,17 @@ export default function Admin() {
 
       {/* Location Tabs */}
       <div className="flex gap-3 px-4 pb-4">
-        {LOCATIONS.map((loc, i) => (
+        {POPUP_STORES.map((store, i) => (
           <button
-            key={loc}
-            onClick={() => setActiveLocation(i)}
+            key={store.slug}
+            onClick={() => setActiveLocationIdx(i)}
             className={`px-8 py-3.5 text-lg font-bold rounded-xl transition-colors ${
-              activeLocation === i
+              activeLocationIdx === i
                 ? 'bg-[#ffdd71] text-black'
                 : 'bg-gray-100 text-gray-500'
             }`}
           >
-            {loc}
+            {store.name}
           </button>
         ))}
       </div>

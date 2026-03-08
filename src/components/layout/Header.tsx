@@ -1,5 +1,6 @@
-import { Link, useLocation, useSearchParams } from 'react-router-dom';
+import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { CATEGORY_NAMES } from '../../data/products';
+import { getStoreBySlug } from '../../data/popupStores';
 
 const categoryItems = [
   { key: '', label: '전체' },
@@ -13,11 +14,12 @@ const sizeItems = [
 ];
 
 export default function Header() {
-  const location = useLocation();
+  const { storeSlug } = useParams<{ storeSlug: string }>();
   const [searchParams, setSearchParams] = useSearchParams();
   const currentCategory = searchParams.get('category') || '';
   const currentSize = searchParams.get('size') || '';
-  const isShop = location.pathname === '/' || location.pathname === '/shop';
+  const currentStore = storeSlug ? getStoreBySlug(storeSlug) : undefined;
+  const isShop = !!currentStore && !location.pathname.includes('/product/');
   const isAdmin = location.pathname.startsWith('/admin');
 
   if (isAdmin) return null;
@@ -32,11 +34,13 @@ export default function Header() {
     setSearchParams(params);
   };
 
+  const basePath = storeSlug ? `/${storeSlug}` : '/';
+
   return (
     <header className="pt-7 pb-4">
       {/* Logo */}
       <div className="text-center mb-6">
-        <Link to="/">
+        <Link to={basePath}>
           <img
             src="/wtl-logo.png"
             alt="WTL - WGGG T-SHIRTS LIST"
@@ -45,6 +49,13 @@ export default function Header() {
         </Link>
       </div>
 
+      {/* 현재 팝업 스토어 이름 표시 */}
+      {currentStore && (
+        <p className="text-center text-lg font-black text-black pb-6">
+          {currentStore.name}
+        </p>
+      )}
+
       {/* Category Tabs */}
       {isShop && (
         <>
@@ -52,7 +63,7 @@ export default function Header() {
             {categoryItems.map((item) => (
               <Link
                 key={item.key}
-                to={item.key ? `/?category=${item.key}` : '/'}
+                to={item.key ? `${basePath}?category=${item.key}` : basePath}
                 className={`text-sm whitespace-nowrap transition-colors ${
                   currentCategory === item.key
                     ? 'text-black font-bold'

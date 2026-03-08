@@ -1,16 +1,21 @@
-import { useEffect, useRef } from 'react';
-import { useSearchParams } from 'react-router-dom';
-import { motion } from 'framer-motion';
-import { useProductState } from '../hooks/useProductState';
-import ProductCard from '../components/ProductCard';
+import { motion } from "framer-motion";
+import { useEffect, useRef } from "react";
+import { Navigate, useParams, useSearchParams } from "react-router-dom";
+import ProductCard from "../components/ProductCard";
+import { getStoreBySlug } from "../data/popupStores";
+import { useProductState } from "../hooks/useProductState";
 
-const SCROLL_KEY = 'shop-scroll-y';
+const SCROLL_KEY = "shop-scroll-y";
 
 export default function Shop() {
+  const { storeSlug } = useParams<{ storeSlug: string }>();
+  const store = storeSlug ? getStoreBySlug(storeSlug) : undefined;
+
   const [searchParams] = useSearchParams();
-  const categoryParam = searchParams.get('category');
+  const categoryParam = searchParams.get("category");
   const activeCategory = categoryParam ? Number(categoryParam) : 0;
-  const { products, isSoldOut, getSoldOutSizesForProduct } = useProductState();
+  const { products, isSoldOut, getSoldOutSizesForProduct } =
+    useProductState(storeSlug);
   const restoredRef = useRef(false);
 
   // 스크롤 위치 저장 (클릭으로 페이지 떠나기 전에 저장)
@@ -20,13 +25,13 @@ export default function Shop() {
     };
     // 링크 클릭 시 스크롤 위치 저장
     const handleClick = (e: MouseEvent) => {
-      const anchor = (e.target as HTMLElement).closest('a');
-      if (anchor && anchor.href.includes('/product/')) {
+      const anchor = (e.target as HTMLElement).closest("a");
+      if (anchor && anchor.href.includes("/product/")) {
         saveScroll();
       }
     };
-    document.addEventListener('click', handleClick);
-    return () => document.removeEventListener('click', handleClick);
+    document.addEventListener("click", handleClick);
+    return () => document.removeEventListener("click", handleClick);
   }, []);
 
   // 스크롤 위치 복원 (상품 로드 후)
@@ -38,7 +43,10 @@ export default function Shop() {
       sessionStorage.removeItem(SCROLL_KEY);
       // smooth scroll 무시하고 즉시 이동
       setTimeout(() => {
-        window.scrollTo({ top: Number(saved), behavior: 'instant' as ScrollBehavior });
+        window.scrollTo({
+          top: Number(saved),
+          behavior: "instant" as ScrollBehavior,
+        });
       }, 50);
     }
   }, [products]);
@@ -47,6 +55,11 @@ export default function Shop() {
     activeCategory === 0
       ? products
       : products.filter((p) => p.category === activeCategory);
+
+  // 유효하지 않은 스토어 slug인 경우
+  if (storeSlug && !store) {
+    return <Navigate to="/" replace />;
+  }
 
   return (
     <div className="px-2 md:px-8 pb-8">

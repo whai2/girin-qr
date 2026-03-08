@@ -50,23 +50,24 @@ export const ALL_SIZES = [
   'XS', 'S', 'M', 'L', 'XL', '2XL', '3XL', '4XL',
 ];
 
-export function useProductState() {
+export function useProductState(location?: string) {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
 
   const reload = useCallback(async () => {
     try {
-      const data = await fetchProducts();
+      const data = await fetchProducts(location);
       if (data && data.length > 0) {
         setProducts(data);
       } else {
+        // API 응답이 비어있으면 하드코딩 데이터 사용 (location 필터 없이)
         setProducts(defaultProducts.map(toApiProduct));
       }
     } catch {
       setProducts(defaultProducts.map(toApiProduct));
     }
     setLoading(false);
-  }, []);
+  }, [location]);
 
   useEffect(() => {
     reload();
@@ -143,7 +144,7 @@ export function useProductState() {
   );
 
   const addProduct = useCallback(
-    async (product: { name: string; number: number; category: number; price: number; image?: File }) => {
+    async (product: { name: string; number: number; category: number; price: number; image?: File; location?: string }) => {
       const created = await apiCreateProduct(product);
       setProducts((prev) => [...prev, created]);
     },

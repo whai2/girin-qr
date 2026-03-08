@@ -3,9 +3,9 @@ import { motion } from 'framer-motion';
 import { useProductState } from '../hooks/useProductState';
 
 export default function ProductDetail() {
-  const { id } = useParams();
+  const { id, storeSlug } = useParams();
   const navigate = useNavigate();
-  const { products, isSoldOut, getSoldOutSizesForProduct } = useProductState();
+  const { products, isSoldOut, getSoldOutSizesForProduct } = useProductState(storeSlug);
 
   const product = products.find((p) => p._id === id);
 
@@ -14,7 +14,7 @@ export default function ProductDetail() {
       <div className="flex flex-col items-center justify-center py-20">
         <p className="text-lg font-bold">상품을 찾을 수 없습니다.</p>
         <button
-          onClick={() => navigate('/')}
+          onClick={() => navigate(storeSlug ? `/${storeSlug}` : '/')}
           className="mt-4 text-sm underline"
         >
           돌아가기

@@ -9,11 +9,15 @@ export interface Product {
   price: number;
   soldOut: boolean;
   soldOutSizes: string[];
+  location?: string; // 팝업 스토어 slug (e.g. 'the-hyundai-daegu')
 }
 
-// 전체 상품 조회
-export async function fetchProducts(): Promise<Product[]> {
-  const res = await fetch(`${API_BASE}/products`);
+// 전체 상품 조회 (location 필터 가능)
+export async function fetchProducts(location?: string): Promise<Product[]> {
+  const url = location
+    ? `${API_BASE}/products?location=${encodeURIComponent(location)}`
+    : `${API_BASE}/products`;
+  const res = await fetch(url);
   return res.json();
 }
 
@@ -24,6 +28,7 @@ export async function createProduct(data: {
   category: number;
   price: number;
   image?: File;
+  location?: string;
 }): Promise<Product> {
   const form = new FormData();
   form.append('name', data.name);
@@ -31,6 +36,7 @@ export async function createProduct(data: {
   form.append('category', String(data.category));
   form.append('price', String(data.price));
   if (data.image) form.append('image', data.image);
+  if (data.location) form.append('location', data.location);
 
   const res = await fetch(`${API_BASE}/products`, { method: 'POST', body: form });
   return res.json();
