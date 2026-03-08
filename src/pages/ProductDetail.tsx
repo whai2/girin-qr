@@ -5,7 +5,7 @@ import { useProductState } from '../hooks/useProductState';
 export default function ProductDetail() {
   const { id, storeSlug } = useParams();
   const navigate = useNavigate();
-  const { products, isSoldOut, getSoldOutSizesForProduct } = useProductState(storeSlug);
+  const { products, isSoldOut, getSoldOutSizesForProduct } = useProductState(storeSlug ?? '');
 
   const product = products.find((p) => p._id === id);
 

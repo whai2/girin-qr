@@ -16,7 +16,7 @@ export default function Shop() {
   const activeCategory = categoryParam ? Number(categoryParam) : 0;
   const activeSize = searchParams.get("size") || "";
   const { products, isSoldOut, getSoldOutSizesForProduct } =
-    useProductState(storeSlug);
+    useProductState(storeSlug ?? '');
   const restoredRef = useRef(false);
 
   // 스크롤 위치 저장 (클릭으로 페이지 떠나기 전에 저장)
