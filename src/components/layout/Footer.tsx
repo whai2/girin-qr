@@ -28,12 +28,12 @@ export default function Footer() {
       </div>
 
       {/* Staff Door (white background) */}
-      <div className="w-full bg-white flex items-end justify-center pt-8 pb-4">
+      <div className="w-full bg-white flex items-end justify-center pt-20 pb-12">
         <Link
           to="/admin/login"
           className="hover:opacity-70 transition-opacity"
         >
-          <img src="/wtl-staff-door.png" alt="관리자" style={{ height: '30rem' }} />
+          <img src="/wtl-staff-door.png" alt="관리자" style={{ height: '18rem' }} />
         </Link>
       </div>
     </footer>
