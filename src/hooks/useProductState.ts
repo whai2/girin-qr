@@ -7,8 +7,14 @@ import {
   deleteProduct as apiDeleteProduct,
   type Product,
 } from '../api/products';
+import { products as defaultProducts } from '../data/products';
 
 export type { Product };
+
+// API 실패 시 기존 하드코딩 데이터를 fallback으로 사용
+function toApiProduct(p: { id: number; name: string; number: number; category: number; image: string; price: number }): Product {
+  return { _id: String(p.id), name: p.name, number: p.number, category: p.category, image: p.image, price: p.price, soldOut: false, soldOutSizes: [] };
+}
 
 export const ALL_SIZES = [
   '110', '120', '130', '140', '150',
@@ -20,8 +26,16 @@ export function useProductState() {
   const [loading, setLoading] = useState(true);
 
   const reload = useCallback(async () => {
-    const data = await fetchProducts();
-    setProducts(data);
+    try {
+      const data = await fetchProducts();
+      if (data && data.length > 0) {
+        setProducts(data);
+      } else {
+        setProducts(defaultProducts.map(toApiProduct));
+      }
+    } catch {
+      setProducts(defaultProducts.map(toApiProduct));
+    }
     setLoading(false);
   }, []);
 
