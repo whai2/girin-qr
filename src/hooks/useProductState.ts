@@ -138,8 +138,10 @@ export function useProductState(location?: string) {
   }, []);
 
   const getSoldOutSizesForProduct = useCallback(
-    (id: string): string[] =>
-      products.find((p) => p._id === id)?.soldOutSizes ?? [],
+    (id: string): string[] => {
+      const sizes = products.find((p) => p._id === id)?.soldOutSizes ?? [];
+      return [...sizes].sort((a, b) => ALL_SIZES.indexOf(a) - ALL_SIZES.indexOf(b));
+    },
     [products]
   );
 
