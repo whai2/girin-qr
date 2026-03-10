@@ -6,6 +6,7 @@ import {
   toggleStoreProductSizeSoldOut,
   toggleStoreProductAge,
   createProduct as apiCreateProduct,
+  updateProduct as apiUpdateProduct,
   deleteProduct as apiDeleteProduct,
   type StoreProduct,
 } from '../api/products';
@@ -109,6 +110,13 @@ export function useProductState(storeSlug: string) {
     onSettled: () => queryClient.invalidateQueries({ queryKey }),
   });
 
+  // 상품 수정
+  const updateMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: { name?: string; number?: number; category?: number; price?: number; image?: File; smartStoreUrl?: string } }) =>
+      apiUpdateProduct(id, data),
+    onSettled: () => queryClient.invalidateQueries({ queryKey }),
+  });
+
   // 상품 삭제
   const deleteMutation = useMutation({
     mutationFn: (id: string) => apiDeleteProduct(id),
@@ -166,6 +174,13 @@ export function useProductState(storeSlug: string) {
     [addMutation]
   );
 
+  const editProduct = useCallback(
+    async (id: string, data: { name?: string; number?: number; category?: number; price?: number; image?: File; smartStoreUrl?: string }) => {
+      return updateMutation.mutateAsync({ id, data });
+    },
+    [updateMutation]
+  );
+
   const removeProduct = useCallback(async (id: string) => {
     return deleteMutation.mutateAsync(id);
   }, [deleteMutation]);
@@ -179,6 +194,7 @@ export function useProductState(storeSlug: string) {
     getSoldOutSizesForProduct,
     toggleAgeGroup,
     addProduct,
+    editProduct,
     removeProduct,
   };
 }

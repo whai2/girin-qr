@@ -58,6 +58,34 @@ export async function createProduct(data: {
   return res.json();
 }
 
+// 상품 수정 (이미지 포함 가능)
+export async function updateProduct(
+  id: string,
+  data: {
+    name?: string;
+    number?: number;
+    category?: number;
+    price?: number;
+    image?: File;
+    smartStoreUrl?: string;
+  },
+): Promise<Product> {
+  const form = new FormData();
+  if (data.name !== undefined) form.append('name', data.name);
+  if (data.number !== undefined) form.append('number', String(data.number));
+  if (data.category !== undefined) form.append('category', String(data.category));
+  if (data.price !== undefined) form.append('price', String(data.price));
+  if (data.image) form.append('image', data.image);
+  if (data.smartStoreUrl !== undefined) form.append('smartStoreUrl', data.smartStoreUrl);
+
+  const res = await fetch(`${API_BASE}/products/${id}`, {
+    method: 'PATCH',
+    headers: authHeaders(),
+    body: form,
+  });
+  return res.json();
+}
+
 // 상품 삭제
 export async function deleteProduct(id: string): Promise<void> {
   await fetch(`${API_BASE}/products/${id}`, {

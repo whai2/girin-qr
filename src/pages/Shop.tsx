@@ -53,8 +53,9 @@ export default function Shop() {
   }, [products]);
 
   const filtered = products.filter((p) => {
+    if (!p.ageGroup || p.ageGroup.length === 0) return false;
     if (activeCategory !== null && p.category !== activeCategory) return false;
-    if (activeSize && (!p.ageGroup || !p.ageGroup.includes(activeSize as 'kids' | 'adult'))) return false;
+    if (activeSize && !p.ageGroup.includes(activeSize as 'kids' | 'adult')) return false;
     return true;
   });
 

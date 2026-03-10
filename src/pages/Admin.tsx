@@ -126,6 +126,7 @@ export default function Admin() {
     getSoldOutSizesForProduct,
     toggleAgeGroup,
     addProduct,
+    editProduct,
     removeProduct,
   } = useProductState(activeStore?.slug ?? '');
   const [activeTab, setActiveTab] = useState(0);
@@ -143,6 +144,18 @@ export default function Admin() {
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // 상품 수정 상태
+  const [editingProduct, setEditingProduct] = useState<import('../api/products').StoreProduct | null>(null);
+  const [editName, setEditName] = useState('');
+  const [editNumber, setEditNumber] = useState(0);
+  const [editCategory, setEditCategory] = useState(1);
+  const [editPrice, setEditPrice] = useState(0);
+  const [editSmartStoreUrl, setEditSmartStoreUrl] = useState('');
+  const [editImage, setEditImage] = useState<File | null>(null);
+  const [editImagePreview, setEditImagePreview] = useState<string | null>(null);
+  const [isEditSubmitting, setIsEditSubmitting] = useState(false);
+  const editFileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
@@ -203,11 +216,59 @@ export default function Admin() {
     await removeProduct(id);
   };
 
+  const startEdit = (product: import('../api/products').StoreProduct) => {
+    setEditingProduct(product);
+    setEditName(product.name);
+    setEditNumber(product.number);
+    setEditCategory(product.category);
+    setEditPrice(product.price);
+    setEditSmartStoreUrl(product.smartStoreUrl ?? '');
+    setEditImage(null);
+    setEditImagePreview(null);
+  };
+
+  const cancelEdit = () => {
+    setEditingProduct(null);
+    setEditImage(null);
+    setEditImagePreview(null);
+    if (editFileInputRef.current) editFileInputRef.current.value = '';
+  };
+
+  const handleEditImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setEditImage(file);
+      const reader = new FileReader();
+      reader.onloadend = () => setEditImagePreview(reader.result as string);
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleEditSubmit = async () => {
+    if (!editingProduct || !editName.trim()) return alert('상품명을 입력하세요.');
+    setIsEditSubmitting(true);
+    try {
+      await editProduct(editingProduct._id, {
+        name: editName,
+        number: editNumber,
+        category: editCategory,
+        price: editPrice,
+        smartStoreUrl: editSmartStoreUrl.trim(),
+        ...(editImage ? { image: editImage } : {}),
+      });
+      cancelEdit();
+    } catch {
+      alert('수정에 실패했습니다.');
+    }
+    setIsEditSubmitting(false);
+  };
+
   if (authLoading || !isAuthenticated) return null;
 
   const filtered = products
     .filter((p) => activeCategory === 0 || p.category === activeCategory)
-    .filter((p) => !search || p.name.includes(search));
+    .filter((p) => !search || p.name.includes(search))
+    .filter((p) => activeTab !== 1 || (p.ageGroup && p.ageGroup.length > 0));
 
   return (
     <div className="min-h-screen bg-white">
@@ -557,6 +618,112 @@ export default function Admin() {
         </div>
       )}
 
+      {/* 상품 수정 폼 */}
+      {editingProduct && (
+        <div className="mx-4 mb-4 p-4 border-2 border-blue-300 rounded-xl bg-blue-50">
+          <h3 className="font-bold text-lg mb-3">상품 수정</h3>
+
+          {/* 이미지 */}
+          <div className="mb-3">
+            <label className="block text-sm font-bold mb-1">이미지</label>
+            <div
+              onClick={() => editFileInputRef.current?.click()}
+              className="w-32 h-32 border-2 border-dashed border-gray-300 rounded-xl flex items-center justify-center cursor-pointer hover:border-black transition-colors overflow-hidden"
+            >
+              {editImagePreview ? (
+                <img src={editImagePreview} alt="미리보기" className="w-full h-full object-cover" />
+              ) : (
+                <img src={editingProduct.image} alt={editingProduct.name} className="w-full h-full object-cover" />
+              )}
+            </div>
+            <input
+              ref={editFileInputRef}
+              type="file"
+              accept="image/png,image/jpeg,image/webp"
+              onChange={handleEditImageChange}
+              className="hidden"
+            />
+            <p className="text-xs text-gray-400 mt-1">클릭하여 이미지 변경 (선택사항)</p>
+          </div>
+
+          {/* 상품명 */}
+          <div className="mb-3">
+            <label className="block text-sm font-bold mb-1">상품명</label>
+            <input
+              type="text"
+              value={editName}
+              onChange={(e) => setEditName(e.target.value)}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-black"
+            />
+          </div>
+
+          {/* 번호 + 카테고리 */}
+          <div className="flex gap-3 mb-3">
+            <div className="flex-1">
+              <label className="block text-sm font-bold mb-1">번호</label>
+              <input
+                type="number"
+                value={editNumber}
+                onChange={(e) => setEditNumber(Number(e.target.value))}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-black"
+              />
+            </div>
+            <div className="flex-1">
+              <label className="block text-sm font-bold mb-1">카테고리</label>
+              <select
+                value={editCategory}
+                onChange={(e) => setEditCategory(Number(e.target.value))}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-black"
+              >
+                {categories.map((cat) => (
+                  <option key={cat._id} value={cat.order}>{cat.name}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {/* 가격 */}
+          <div className="mb-3">
+            <label className="block text-sm font-bold mb-1">가격 (원)</label>
+            <input
+              type="number"
+              value={editPrice}
+              onChange={(e) => setEditPrice(Number(e.target.value))}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-black"
+            />
+          </div>
+
+          {/* 스마트스토어 URL */}
+          <div className="mb-4">
+            <label className="block text-sm font-bold mb-1">스마트스토어 URL</label>
+            <input
+              type="url"
+              value={editSmartStoreUrl}
+              onChange={(e) => setEditSmartStoreUrl(e.target.value)}
+              placeholder="https://smartstore.naver.com/..."
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-black"
+            />
+          </div>
+
+          {/* 버튼 */}
+          <div className="flex gap-2">
+            <button
+              onClick={handleEditSubmit}
+              disabled={isEditSubmitting}
+              className="flex-1 py-3 bg-black text-white font-bold rounded-lg disabled:opacity-50"
+            >
+              {isEditSubmitting ? '수정 중...' : '수정 완료'}
+            </button>
+            <button
+              onClick={cancelEdit}
+              className="px-5 py-3 bg-gray-200 text-black font-bold rounded-lg"
+            >
+              취소
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Product List */}
       <div className="px-4 pb-8">
         {activeTab === 2 ? (
@@ -583,6 +750,14 @@ export default function Admin() {
                       {categoryNameMap[product.category] ?? '미분류'}
                     </p>
                     <div className="flex gap-2 mt-1">
+                      {permissions.canEdit && (
+                        <button
+                          onClick={() => startEdit(product)}
+                          className="text-sm text-blue-500"
+                        >
+                          수정
+                        </button>
+                      )}
                       {permissions.canDelete && (
                         <button
                           onClick={() => handleDelete(product._id, product.name)}
