@@ -25,6 +25,23 @@ export interface StoreProduct extends Product {
   ageGroup: ('kids' | 'adult')[];
 }
 
+// 페이지네이션 응답
+export interface PaginatedResponse<T> {
+  items: T[];
+  total: number;
+  page: number;
+  limit: number;
+}
+
+// 장소별 상품 조회 쿼리 파라미터
+export interface StoreProductQuery {
+  ageGroup?: 'kids' | 'adult' | 'all';
+  category?: number;
+  search?: string;
+  page?: number;
+  limit?: number;
+}
+
 // ── Products (상품 기본 정보) ──
 
 // 전체 상품 조회
@@ -128,9 +145,22 @@ export async function deleteStore(id: string): Promise<void> {
 
 // ── Store Products (장소별 상품 설정) ──
 
-// 장소별 상품 목록 조회
-export async function fetchStoreProducts(storeId: string): Promise<StoreProduct[]> {
-  const res = await fetch(`${API_BASE}/stores/${storeId}/products`, { headers: authHeaders() });
+// 장소별 상품 목록 조회 (페이지네이션 + 필터)
+export async function fetchStoreProducts(
+  storeId: string,
+  params?: StoreProductQuery,
+): Promise<PaginatedResponse<StoreProduct>> {
+  const query = new URLSearchParams();
+  if (params?.ageGroup) query.set('ageGroup', params.ageGroup);
+  if (params?.category !== undefined) query.set('category', String(params.category));
+  if (params?.search) query.set('search', params.search);
+  if (params?.page !== undefined) query.set('page', String(params.page));
+  if (params?.limit !== undefined) query.set('limit', String(params.limit));
+  const qs = query.toString();
+  const res = await fetch(
+    `${API_BASE}/stores/${storeId}/products${qs ? `?${qs}` : ''}`,
+    { headers: authHeaders() },
+  );
   return res.json();
 }
 

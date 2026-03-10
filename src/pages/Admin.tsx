@@ -120,18 +120,42 @@ export default function Admin() {
     deleteCategoryMutation.mutate(cat._id);
   };
 
+  const [activeTab, setActiveTab] = useState(0);
+  const [activeCategory, setActiveCategory] = useState(0);
+  const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  const [page, setPage] = useState(1);
+  const PAGE_LIMIT = 20;
+
+  // 검색어 디바운스
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(search), 300);
+    return () => clearTimeout(timer);
+  }, [search]);
+
+  // 필터 변경 시 페이지 리셋
+  useEffect(() => {
+    setPage(1);
+  }, [activeCategory, debouncedSearch, activeTab, activeLocationIdx]);
+
   const {
     products,
+    total,
     toggleSizeSoldOut,
     getSoldOutSizesForProduct,
     toggleAgeGroup,
     addProduct,
     editProduct,
     removeProduct,
-  } = useProductState(activeStore?.slug ?? '');
-  const [activeTab, setActiveTab] = useState(0);
-  const [activeCategory, setActiveCategory] = useState(0);
-  const [search, setSearch] = useState('');
+  } = useProductState(activeStore?.slug ?? '', {
+    ...(activeCategory !== 0 ? { category: activeCategory } : {}),
+    ...(debouncedSearch ? { search: debouncedSearch } : {}),
+    ...(activeTab === 1 ? { ageGroup: 'all' as const } : {}),
+    page,
+    limit: PAGE_LIMIT,
+  });
+
+  const totalPages = Math.ceil(total / PAGE_LIMIT);
 
   // 상품 등록 폼 상태
   const [showAddForm, setShowAddForm] = useState(false);
@@ -265,10 +289,8 @@ export default function Admin() {
 
   if (authLoading || !isAuthenticated) return null;
 
-  const filtered = products
-    .filter((p) => activeCategory === 0 || p.category === activeCategory)
-    .filter((p) => !search || p.name.includes(search))
-    .filter((p) => activeTab !== 1 || (p.ageGroup && p.ageGroup.length > 0));
+  // 서버에서 필터링 + 페이지네이션 처리됨
+  const filtered = products;
 
   return (
     <div className="min-h-screen bg-white">
@@ -848,6 +870,29 @@ export default function Admin() {
           <p className="text-center text-gray-400 py-20">
             상품이 없습니다.
           </p>
+        )}
+
+        {/* 페이지네이션 */}
+        {activeTab !== 2 && totalPages > 1 && (
+          <div className="flex items-center justify-center gap-4 pt-6 pb-2">
+            <button
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              disabled={page <= 1}
+              className="px-4 py-2 text-sm font-bold rounded-lg border border-gray-300 disabled:opacity-30"
+            >
+              이전
+            </button>
+            <span className="text-sm text-gray-500">
+              {page} / {totalPages}
+            </span>
+            <button
+              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              disabled={page >= totalPages}
+              className="px-4 py-2 text-sm font-bold rounded-lg border border-gray-300 disabled:opacity-30"
+            >
+              다음
+            </button>
+          </div>
         )}
       </div>
       </>

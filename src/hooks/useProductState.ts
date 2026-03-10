@@ -9,6 +9,8 @@ import {
   updateProduct as apiUpdateProduct,
   deleteProduct as apiDeleteProduct,
   type StoreProduct,
+  type StoreProductQuery,
+  type PaginatedResponse,
 } from '../api/products';
 
 export type { StoreProduct };
@@ -18,35 +20,50 @@ export const ALL_SIZES = [
   'XS', 'S', 'M', 'L', 'XL', '2XL', '3XL', '4XL',
 ];
 
-function storeProductsKey(storeSlug: string) {
-  return ['storeProducts', storeSlug] as const;
+type PaginatedStoreProducts = PaginatedResponse<StoreProduct>;
+
+function storeProductsKey(storeSlug: string, params?: StoreProductQuery) {
+  return params ? ['storeProducts', storeSlug, params] as const : ['storeProducts', storeSlug] as const;
 }
 
-export function useProductState(storeSlug: string) {
-  const queryClient = useQueryClient();
-  const queryKey = storeProductsKey(storeSlug);
+// items 매핑 헬퍼 (optimistic update용)
+function mapItems(
+  old: PaginatedStoreProducts | undefined,
+  fn: (items: StoreProduct[]) => StoreProduct[],
+): PaginatedStoreProducts | undefined {
+  return old ? { ...old, items: fn(old.items) } : old;
+}
 
-  const { data: products = [], isLoading: loading } = useQuery({
+export function useProductState(storeSlug: string, params?: StoreProductQuery) {
+  const queryClient = useQueryClient();
+  const queryKey = storeProductsKey(storeSlug, params);
+  // invalidation용 prefix key (모든 params 매칭)
+  const prefixKey = ['storeProducts', storeSlug] as const;
+
+  const { data, isLoading: loading } = useQuery({
     queryKey,
-    queryFn: () => fetchStoreProducts(storeSlug),
+    queryFn: () => fetchStoreProducts(storeSlug, params),
     enabled: !!storeSlug,
   });
+
+  const products = data?.items ?? [];
+  const total = data?.total ?? 0;
 
   // 품절 토글
   const soldOutMutation = useMutation({
     mutationFn: (id: string) => toggleStoreProductSoldOut(storeSlug, id),
     onMutate: async (id) => {
       await queryClient.cancelQueries({ queryKey });
-      const prev = queryClient.getQueryData<StoreProduct[]>(queryKey);
-      queryClient.setQueryData<StoreProduct[]>(queryKey, (old) =>
-        old?.map((p) => (p._id === id ? { ...p, soldOut: !p.soldOut } : p))
+      const prev = queryClient.getQueryData<PaginatedStoreProducts>(queryKey);
+      queryClient.setQueryData<PaginatedStoreProducts>(queryKey, (old) =>
+        mapItems(old, (items) => items.map((p) => (p._id === id ? { ...p, soldOut: !p.soldOut } : p)))
       );
       return { prev };
     },
     onError: (_err, _id, context) => {
       if (context?.prev) queryClient.setQueryData(queryKey, context.prev);
     },
-    onSettled: () => queryClient.invalidateQueries({ queryKey }),
+    onSettled: () => queryClient.invalidateQueries({ queryKey: prefixKey }),
   });
 
   // 사이즈 품절 토글
@@ -55,25 +72,27 @@ export function useProductState(storeSlug: string) {
       toggleStoreProductSizeSoldOut(storeSlug, id, size),
     onMutate: async ({ id, size }) => {
       await queryClient.cancelQueries({ queryKey });
-      const prev = queryClient.getQueryData<StoreProduct[]>(queryKey);
-      queryClient.setQueryData<StoreProduct[]>(queryKey, (old) =>
-        old?.map((p) => {
-          if (p._id !== id) return p;
-          const sizes = p.soldOutSizes || [];
-          return {
-            ...p,
-            soldOutSizes: sizes.includes(size)
-              ? sizes.filter((s) => s !== size)
-              : [...sizes, size],
-          };
-        })
+      const prev = queryClient.getQueryData<PaginatedStoreProducts>(queryKey);
+      queryClient.setQueryData<PaginatedStoreProducts>(queryKey, (old) =>
+        mapItems(old, (items) =>
+          items.map((p) => {
+            if (p._id !== id) return p;
+            const sizes = p.soldOutSizes || [];
+            return {
+              ...p,
+              soldOutSizes: sizes.includes(size)
+                ? sizes.filter((s) => s !== size)
+                : [...sizes, size],
+            };
+          })
+        )
       );
       return { prev };
     },
     onError: (_err, _vars, context) => {
       if (context?.prev) queryClient.setQueryData(queryKey, context.prev);
     },
-    onSettled: () => queryClient.invalidateQueries({ queryKey }),
+    onSettled: () => queryClient.invalidateQueries({ queryKey: prefixKey }),
   });
 
   // 연령 그룹 토글
@@ -82,39 +101,41 @@ export function useProductState(storeSlug: string) {
       toggleStoreProductAge(storeSlug, id, age),
     onMutate: async ({ id, age }) => {
       await queryClient.cancelQueries({ queryKey });
-      const prev = queryClient.getQueryData<StoreProduct[]>(queryKey);
-      queryClient.setQueryData<StoreProduct[]>(queryKey, (old) =>
-        old?.map((p) => {
-          if (p._id !== id) return p;
-          const groups = p.ageGroup || [];
-          return {
-            ...p,
-            ageGroup: groups.includes(age)
-              ? groups.filter((g) => g !== age)
-              : [...groups, age],
-          };
-        })
+      const prev = queryClient.getQueryData<PaginatedStoreProducts>(queryKey);
+      queryClient.setQueryData<PaginatedStoreProducts>(queryKey, (old) =>
+        mapItems(old, (items) =>
+          items.map((p) => {
+            if (p._id !== id) return p;
+            const groups = p.ageGroup || [];
+            return {
+              ...p,
+              ageGroup: groups.includes(age)
+                ? groups.filter((g) => g !== age)
+                : [...groups, age],
+            };
+          })
+        )
       );
       return { prev };
     },
     onError: (_err, _vars, context) => {
       if (context?.prev) queryClient.setQueryData(queryKey, context.prev);
     },
-    onSettled: () => queryClient.invalidateQueries({ queryKey }),
+    onSettled: () => queryClient.invalidateQueries({ queryKey: prefixKey }),
   });
 
   // 상품 등록
   const addMutation = useMutation({
     mutationFn: (product: { name: string; number: number; category: number; price: number; image?: File; smartStoreUrl?: string }) =>
       apiCreateProduct(product),
-    onSettled: () => queryClient.invalidateQueries({ queryKey }),
+    onSettled: () => queryClient.invalidateQueries({ queryKey: prefixKey }),
   });
 
   // 상품 수정
   const updateMutation = useMutation({
     mutationFn: ({ id, data }: { id: string; data: { name?: string; number?: number; category?: number; price?: number; image?: File; smartStoreUrl?: string } }) =>
       apiUpdateProduct(id, data),
-    onSettled: () => queryClient.invalidateQueries({ queryKey }),
+    onSettled: () => queryClient.invalidateQueries({ queryKey: prefixKey }),
   });
 
   // 상품 삭제
@@ -122,16 +143,16 @@ export function useProductState(storeSlug: string) {
     mutationFn: (id: string) => apiDeleteProduct(id),
     onMutate: async (id) => {
       await queryClient.cancelQueries({ queryKey });
-      const prev = queryClient.getQueryData<StoreProduct[]>(queryKey);
-      queryClient.setQueryData<StoreProduct[]>(queryKey, (old) =>
-        old?.filter((p) => p._id !== id)
+      const prev = queryClient.getQueryData<PaginatedStoreProducts>(queryKey);
+      queryClient.setQueryData<PaginatedStoreProducts>(queryKey, (old) =>
+        mapItems(old, (items) => items.filter((p) => p._id !== id))
       );
       return { prev };
     },
     onError: (_err, _id, context) => {
       if (context?.prev) queryClient.setQueryData(queryKey, context.prev);
     },
-    onSettled: () => queryClient.invalidateQueries({ queryKey }),
+    onSettled: () => queryClient.invalidateQueries({ queryKey: prefixKey }),
   });
 
   const toggleSoldOut = useCallback((id: string) => {
@@ -187,6 +208,7 @@ export function useProductState(storeSlug: string) {
 
   return {
     products,
+    total,
     loading,
     toggleSoldOut,
     isSoldOut,
