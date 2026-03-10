@@ -33,8 +33,7 @@ export default function Shop() {
   const activeSize = searchParams.get("size") || "";
 
   const filters = {
-    // TODO: 테스트 후 ageGroup 복원
-    // ageGroup: (activeSize || 'all') as 'kids' | 'adult' | 'all',
+    ageGroup: (activeSize || 'all') as 'kids' | 'adult' | 'all',
     ...(activeCategory !== undefined ? { category: activeCategory } : {}),
   };
 
