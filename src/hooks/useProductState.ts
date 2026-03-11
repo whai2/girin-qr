@@ -107,11 +107,13 @@ export function useProductState(storeSlug: string, params?: StoreProductQuery) {
           items.map((p) => {
             if (p._id !== id) return p;
             const groups = p.ageGroup || [];
+            const newGroups = groups.includes(age)
+              ? groups.filter((g) => g !== age)
+              : [...groups, age];
             return {
               ...p,
-              ageGroup: groups.includes(age)
-                ? groups.filter((g) => g !== age)
-                : [...groups, age],
+              ageGroup: newGroups,
+              ...(newGroups.length === 0 ? { soldOutSizes: [] } : {}),
             };
           })
         )
