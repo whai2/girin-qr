@@ -1,13 +1,12 @@
 import { motion } from "framer-motion";
-import { useEffect, useMemo, useRef } from "react";
+import { useCallback } from "react";
 import { Navigate, useParams, useSearchParams } from "react-router-dom";
-import { useInfiniteQuery } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import ProductCard from "../components/ProductCard";
 import { getStoreBySlug } from "../data/popupStores";
 import { fetchStoreProducts, type StoreProduct } from "../api/products";
 import { ALL_SIZES } from "../hooks/useProductState";
 
-const SCROLL_KEY = "shop-scroll-y";
 const PAGE_LIMIT = 20;
 
 function isSoldOut(p: StoreProduct) {
@@ -27,89 +26,46 @@ export default function Shop() {
   const { storeSlug } = useParams<{ storeSlug: string }>();
   const store = storeSlug ? getStoreBySlug(storeSlug) : undefined;
 
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const categoryParam = searchParams.get("category");
   const activeCategory = categoryParam !== null ? Number(categoryParam) : undefined;
   const activeSize = searchParams.get("size") || "";
+  const page = Number(searchParams.get("page") || "1");
 
   const filters = {
     ageGroup: (activeSize || 'all') as 'kids' | 'adult' | 'all',
     ...(activeCategory !== undefined ? { category: activeCategory } : {}),
   };
 
-  const {
-    data,
-    fetchNextPage,
-    hasNextPage,
-    isFetchingNextPage,
-    isLoading,
-  } = useInfiniteQuery({
-    queryKey: ['shopProducts', storeSlug, filters],
-    queryFn: ({ pageParam }) =>
+  const setPage = useCallback(
+    (newPage: number) => {
+      setSearchParams((prev) => {
+        const next = new URLSearchParams(prev);
+        if (newPage <= 1) {
+          next.delete("page");
+        } else {
+          next.set("page", String(newPage));
+        }
+        return next;
+      });
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    },
+    [setSearchParams],
+  );
+
+  const { data, isLoading } = useQuery({
+    queryKey: ['shopProducts', storeSlug, filters, page],
+    queryFn: () =>
       fetchStoreProducts(storeSlug!, {
         ...filters,
-        page: pageParam,
+        page,
         limit: PAGE_LIMIT,
       }),
-    getNextPageParam: (lastPage) =>
-      lastPage.page * lastPage.limit < lastPage.total
-        ? lastPage.page + 1
-        : undefined,
-    initialPageParam: 1,
     enabled: !!storeSlug,
   });
 
-  const products = useMemo(
-    () => data?.pages.flatMap((p) => p.items) ?? [],
-    [data],
-  );
-
-  const sentinelRef = useRef<HTMLDivElement>(null);
-  const restoredRef = useRef(false);
-
-  // 스크롤 위치 저장
-  useEffect(() => {
-    const handleClick = (e: MouseEvent) => {
-      const anchor = (e.target as HTMLElement).closest("a");
-      if (anchor && anchor.href.includes("/product/")) {
-        sessionStorage.setItem(SCROLL_KEY, String(window.scrollY));
-      }
-    };
-    document.addEventListener("click", handleClick);
-    return () => document.removeEventListener("click", handleClick);
-  }, []);
-
-  // 스크롤 위치 복원
-  useEffect(() => {
-    if (restoredRef.current || products.length === 0) return;
-    restoredRef.current = true;
-    const saved = sessionStorage.getItem(SCROLL_KEY);
-    if (saved) {
-      sessionStorage.removeItem(SCROLL_KEY);
-      setTimeout(() => {
-        window.scrollTo({
-          top: Number(saved),
-          behavior: "instant" as ScrollBehavior,
-        });
-      }, 50);
-    }
-  }, [products]);
-
-  // 무한 스크롤 (Intersection Observer)
-  useEffect(() => {
-    const sentinel = sentinelRef.current;
-    if (!sentinel) return;
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries[0].isIntersecting && hasNextPage && !isFetchingNextPage) {
-          fetchNextPage();
-        }
-      },
-      { rootMargin: "200px" },
-    );
-    observer.observe(sentinel);
-    return () => observer.disconnect();
-  }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
+  const products = data?.items ?? [];
+  const totalPages = data ? Math.ceil(data.total / data.limit) : 1;
 
   if (storeSlug && !store) {
     return <Navigate to="/" replace />;
@@ -118,7 +74,7 @@ export default function Shop() {
   return (
     <div className="px-2 md:px-8 pb-8">
       <motion.div
-        key={`${activeCategory ?? 'all'}-${activeSize ?? 'all'}`}
+        key={`${activeCategory ?? 'all'}-${activeSize ?? 'all'}-${page}`}
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 0.3 }}
@@ -135,10 +91,7 @@ export default function Shop() {
         ))}
       </motion.div>
 
-      {/* 무한 스크롤 센티넬 */}
-      <div ref={sentinelRef} />
-
-      {isFetchingNextPage && (
+      {isLoading && (
         <p className="text-center text-black/40 py-4">로딩 중...</p>
       )}
 
@@ -146,6 +99,29 @@ export default function Shop() {
         <p className="text-center text-black/40 py-20">
           해당 카테고리에 상품이 없습니다.
         </p>
+      )}
+
+      {/* 페이지네이션 */}
+      {!isLoading && totalPages > 1 && (
+        <div className="flex items-center justify-center gap-4 pt-6 pb-2">
+          <button
+            onClick={() => setPage(Math.max(1, page - 1))}
+            disabled={page <= 1}
+            className="px-4 py-2 text-sm font-bold rounded-lg border border-gray-300 bg-white disabled:opacity-30"
+          >
+            이전
+          </button>
+          <span className="text-sm text-gray-500">
+            {page} / {totalPages}
+          </span>
+          <button
+            onClick={() => setPage(Math.min(totalPages, page + 1))}
+            disabled={page >= totalPages}
+            className="px-4 py-2 text-sm font-bold rounded-lg border border-gray-300 bg-white disabled:opacity-30"
+          >
+            다음
+          </button>
+        </div>
       )}
     </div>
   );
