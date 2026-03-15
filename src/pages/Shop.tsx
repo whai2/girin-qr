@@ -7,7 +7,7 @@ import { getStoreBySlug } from "../data/popupStores";
 import { fetchStoreProducts, type StoreProduct } from "../api/products";
 import { ALL_SIZES } from "../hooks/useProductState";
 
-const PAGE_LIMIT = 20;
+const PAGE_LIMIT = 21;
 
 function isSoldOut(p: StoreProduct) {
   if (p.soldOut) return true;
