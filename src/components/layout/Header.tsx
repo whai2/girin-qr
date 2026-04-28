@@ -1,6 +1,6 @@
 import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { getStoreBySlug } from '../../data/popupStores';
+import { fetchStores } from '../../api/products';
 import { fetchCategories } from '../../api/categories';
 
 const sizeItems = [
@@ -14,7 +14,11 @@ export default function Header() {
   const [searchParams, setSearchParams] = useSearchParams();
   const currentCategory = searchParams.get('category') || '';
   const currentSize = searchParams.get('size') || '';
-  const currentStore = storeSlug ? getStoreBySlug(storeSlug) : undefined;
+  const { data: stores = [] } = useQuery({
+    queryKey: ['stores'],
+    queryFn: fetchStores,
+  });
+  const currentStore = storeSlug ? stores.find((s) => s.slug === storeSlug) : undefined;
   const isShop = !!currentStore && !location.pathname.includes('/product/');
   const isAdmin = location.pathname.startsWith('/admin');
 

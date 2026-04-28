@@ -3,8 +3,7 @@ import { useCallback } from "react";
 import { Navigate, useParams, useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import ProductCard from "../components/ProductCard";
-import { getStoreBySlug } from "../data/popupStores";
-import { fetchStoreProducts, type StoreProduct } from "../api/products";
+import { fetchStores, fetchStoreProducts, type StoreProduct } from "../api/products";
 import { ALL_SIZES } from "../hooks/useProductState";
 
 const PAGE_LIMIT = 21;
@@ -24,7 +23,11 @@ function getSoldOutSizes(p: StoreProduct): string[] {
 
 export default function Shop() {
   const { storeSlug } = useParams<{ storeSlug: string }>();
-  const store = storeSlug ? getStoreBySlug(storeSlug) : undefined;
+  const { data: stores = [], isLoading: storesLoading } = useQuery({
+    queryKey: ['stores'],
+    queryFn: fetchStores,
+  });
+  const store = storeSlug ? stores.find((s) => s.slug === storeSlug) : undefined;
 
   const [searchParams, setSearchParams] = useSearchParams();
   const categoryParam = searchParams.get("category");
@@ -67,7 +70,7 @@ export default function Shop() {
   const products = data?.items ?? [];
   const totalPages = data ? Math.ceil(data.total / data.limit) : 1;
 
-  if (storeSlug && !store) {
+  if (!storesLoading && storeSlug && !store) {
     return <Navigate to="/" replace />;
   }
 
